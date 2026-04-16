@@ -134,5 +134,5 @@ dist
 excluded
 
 # Run Multiple Apps runtime state
-.conductor/.state.json
-.conductor/logs/
+.overture/.state.json
+.overture/logs/
