@@ -36,7 +36,7 @@ export function activate(context: vscode.ExtensionContext): void {
     getChildren: (e) => treeProvider?.getChildren(e) ?? [],
   };
 
-  const treeView = vscode.window.createTreeView("conductorView", {
+  const treeView = vscode.window.createTreeView("overtureView", {
     treeDataProvider: proxyDataProvider,
     showCollapseAll: false,
   });
@@ -46,8 +46,8 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.StatusBarAlignment.Left,
     100
   );
-  statusBar.command = "conductor.startAll";
-  statusBar.text = `$(play) Conductor`;
+  statusBar.command = "overture.startAll";
+  statusBar.text = `$(play) Overture`;
   statusBar.show();
 
   context.subscriptions.push(treeView, statusBar, proxyEmitter);
@@ -61,7 +61,7 @@ export function activate(context: vscode.ExtensionContext): void {
     const root = getRoot();
     if (!root) {
       vscode.window.showErrorMessage(
-        "Conductor: Open a workspace folder first (File → Open Folder)."
+        "Overture: Open a workspace folder first (File → Open Folder)."
       );
     }
     return root;
@@ -73,7 +73,7 @@ export function activate(context: vscode.ExtensionContext): void {
     const running = states.filter((s) => s.status === "running").length;
     const enabled = states.filter((s) => s.config.enabled).length;
     if (running === 0) {
-      statusBar.text = `$(play) Conductor`;
+      statusBar.text = `$(play) Overture`;
       statusBar.tooltip = "Click to start all enabled apps";
     } else {
       statusBar.text = `$(circle-filled) ${running}/${enabled} running`;
@@ -123,12 +123,12 @@ export function activate(context: vscode.ExtensionContext): void {
     }
 
     if (!configManager.exists()) {
-      vscode.commands.executeCommand("setContext", "conductor.noConfig", true);
+      vscode.commands.executeCommand("setContext", "overture.noConfig", true);
       return;
     }
 
     try {
-      vscode.commands.executeCommand("setContext", "conductor.noConfig", false);
+      vscode.commands.executeCommand("setContext", "overture.noConfig", false);
       const config = await configManager.load();
       logManager!.setConfig(config);
       logManager!.cleanOldLogs(config.retentionDays);
@@ -139,7 +139,7 @@ export function activate(context: vscode.ExtensionContext): void {
       updateStatusBar();
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
-      vscode.window.showErrorMessage(`Conductor: ${msg}`);
+      vscode.window.showErrorMessage(`Overture: ${msg}`);
     }
   }
 
@@ -250,21 +250,21 @@ export function activate(context: vscode.ExtensionContext): void {
 
   // @group Exports : Register all commands — always, regardless of workspace state
   context.subscriptions.push(
-    vscode.commands.registerCommand("conductor.scanProjects", runScan),
+    vscode.commands.registerCommand("overture.scanProjects", runScan),
 
-    vscode.commands.registerCommand("conductor.startAll", async () => {
+    vscode.commands.registerCommand("overture.startAll", async () => {
       if (!requireRoot()) { return; }
       await appRunner?.startAll();
     }),
 
-    vscode.commands.registerCommand("conductor.stopAll", async () => {
+    vscode.commands.registerCommand("overture.stopAll", async () => {
       if (!requireRoot()) { return; }
       await appRunner?.stopAll();
     }),
 
-    vscode.commands.registerCommand("conductor.refresh", () => initialize()),
+    vscode.commands.registerCommand("overture.refresh", () => initialize()),
 
-    vscode.commands.registerCommand("conductor.openConfig", () => {
+    vscode.commands.registerCommand("overture.openConfig", () => {
       if (!requireRoot()) { return; }
       if (!configManager?.exists()) {
         vscode.window.showWarningMessage('No config found. Use "Create Config" first.');
@@ -273,7 +273,7 @@ export function activate(context: vscode.ExtensionContext): void {
       vscode.window.showTextDocument(vscode.Uri.file(configManager.configPath));
     }),
 
-    vscode.commands.registerCommand("conductor.createConfig", async () => {
+    vscode.commands.registerCommand("overture.createConfig", async () => {
       if (!requireRoot()) { return; }
       await initialize(); // ensure configManager exists
       configManager!.createDefault();
@@ -281,22 +281,22 @@ export function activate(context: vscode.ExtensionContext): void {
       await runScan();
     }),
 
-    vscode.commands.registerCommand("conductor.startApp", (item: AppTreeItem) => {
+    vscode.commands.registerCommand("overture.startApp", (item: AppTreeItem) => {
       if (!requireRoot() || !item?.appName) { return; }
       appRunner?.startApp(item.appName);
     }),
 
-    vscode.commands.registerCommand("conductor.stopApp", (item: AppTreeItem) => {
+    vscode.commands.registerCommand("overture.stopApp", (item: AppTreeItem) => {
       if (!requireRoot() || !item?.appName) { return; }
       appRunner?.stopApp(item.appName);
     }),
 
-    vscode.commands.registerCommand("conductor.restartApp", (item: AppTreeItem) => {
+    vscode.commands.registerCommand("overture.restartApp", (item: AppTreeItem) => {
       if (!requireRoot() || !item?.appName) { return; }
       appRunner?.restartApp(item.appName);
     }),
 
-    vscode.commands.registerCommand("conductor.toggleEnable", async (item: AppTreeItem) => {
+    vscode.commands.registerCommand("overture.toggleEnable", async (item: AppTreeItem) => {
       if (!requireRoot() || !item?.appName) { return; }
       if (item.appStatus === "running") {
         await appRunner?.stopApp(item.appName);
@@ -304,13 +304,13 @@ export function activate(context: vscode.ExtensionContext): void {
       await configManager?.toggleEnable(item.appName);
     }),
 
-    vscode.commands.registerCommand("conductor.showOutput", (item: AppTreeItem) => {
+    vscode.commands.registerCommand("overture.showOutput", (item: AppTreeItem) => {
       if (!requireRoot() || !item?.appName) { return; }
       appRunner?.showOutput(item.appName);
     }),
 
     // @group BusinessLogic : Stop all apps belonging to a profile
-    vscode.commands.registerCommand("conductor.stopProfile", async (item: ProfileItem) => {
+    vscode.commands.registerCommand("overture.stopProfile", async (item: ProfileItem) => {
       if (!requireRoot() || !item?.profileName) { return; }
       const names = new Set(item.appNames);
       const states = appRunner?.getAllStates() ?? [];
@@ -322,14 +322,14 @@ export function activate(context: vscode.ExtensionContext): void {
     }),
 
     // @group BusinessLogic : Toggle favorite flag on a profile
-    vscode.commands.registerCommand("conductor.toggleFavoriteProfile", (item: ProfileItem) => {
+    vscode.commands.registerCommand("overture.toggleFavoriteProfile", (item: ProfileItem) => {
       if (!requireRoot() || !item?.profileName) { return; }
       configManager?.toggleFavoriteProfile(item.profileName);
       initialize();
     }),
 
     // @group BusinessLogic : Toggle archived flag on an app
-    vscode.commands.registerCommand("conductor.toggleArchive", async (item: AppTreeItem) => {
+    vscode.commands.registerCommand("overture.toggleArchive", async (item: AppTreeItem) => {
       if (!requireRoot() || !item?.appName) { return; }
       if (item.appStatus === "running") {
         await appRunner?.stopApp(item.appName);
@@ -339,7 +339,7 @@ export function activate(context: vscode.ExtensionContext): void {
     }),
 
     // @group BusinessLogic : Edit an existing profile — re-pick apps and optionally rename
-    vscode.commands.registerCommand("conductor.editProfile", async (item: ProfileItem) => {
+    vscode.commands.registerCommand("overture.editProfile", async (item: ProfileItem) => {
       if (!requireRoot() || !item?.profileName) { return; }
       await initialize();
 
@@ -388,7 +388,7 @@ export function activate(context: vscode.ExtensionContext): void {
     }),
 
     // @group BusinessLogic : Create a named profile by picking apps with checkboxes
-    vscode.commands.registerCommand("conductor.createProfile", async () => {
+    vscode.commands.registerCommand("overture.createProfile", async () => {
       if (!requireRoot()) { return; }
       await initialize();
 
@@ -438,13 +438,13 @@ export function activate(context: vscode.ExtensionContext): void {
     }),
 
     // @group BusinessLogic : Start all apps that belong to a profile
-    vscode.commands.registerCommand("conductor.startProfile", async (item: ProfileItem) => {
+    vscode.commands.registerCommand("overture.startProfile", async (item: ProfileItem) => {
       if (!requireRoot() || !item?.profileName) { return; }
       await appRunner?.startProfile(item.appNames);
     }),
 
     // @group BusinessLogic : Delete a profile from config
-    vscode.commands.registerCommand("conductor.deleteProfile", async (item: ProfileItem) => {
+    vscode.commands.registerCommand("overture.deleteProfile", async (item: ProfileItem) => {
       if (!requireRoot() || !item?.profileName) { return; }
       const confirm = await vscode.window.showWarningMessage(
         `Delete profile "${item.profileName}"?`,

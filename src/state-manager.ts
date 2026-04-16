@@ -16,7 +16,7 @@ export class StateManager {
   private readonly _statePath: string;
 
   constructor(workspaceRoot: string) {
-    this._statePath = path.join(workspaceRoot, ".conductor", ".state.json");
+    this._statePath = path.join(workspaceRoot, ".overture", ".state.json");
   }
 
   // @group BusinessLogic : Write a PID entry for a running app

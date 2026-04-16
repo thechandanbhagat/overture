@@ -1,14 +1,14 @@
 import * as vscode from "vscode";
 
 // @group Constants : Rating prompt configuration
-const KEY_START_COUNT = "conductor.startCount";
-const KEY_NEXT_ASK    = "conductor.nextAskDate";
-const KEY_DONE        = "conductor.ratingDone";
+const KEY_START_COUNT = "overture.startCount";
+const KEY_NEXT_ASK    = "overture.nextAskDate";
+const KEY_DONE        = "overture.ratingDone";
 const PROMPT_AFTER    = 5;                  // show after this many app starts
 const COOLDOWN_DAYS   = 7;                  // "Not now" cooldown in days
 
 // Update this once the extension is published to the marketplace
-const MARKETPLACE_URL = "https://marketplace.visualstudio.com/items?itemName=thechandanbhagat.conductor";
+const MARKETPLACE_URL = "https://marketplace.visualstudio.com/items?itemName=thechandanbhagat.overture";
 
 // @group BusinessLogic : Show a rating prompt after the user has started enough apps
 export class RatingPrompt {
@@ -39,7 +39,7 @@ export class RatingPrompt {
     await this.context.globalState.update(KEY_START_COUNT, 0);
 
     const choice = await vscode.window.showInformationMessage(
-      "Enjoying Conductor? A quick rating helps others discover it.",
+      "Enjoying Overture? A quick rating helps others discover it.",
       "⭐  Rate on Marketplace",
       "Not now",
       "Don't ask again"

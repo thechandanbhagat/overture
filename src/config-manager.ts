@@ -3,7 +3,7 @@ import * as fs from "fs";
 import * as path from "path";
 import { AppConfig, ProfileConfig, RunMultipleAppsConfig } from "./types";
 
-// @group Configuration : Load, watch, and mutate .conductor/config.json
+// @group Configuration : Load, watch, and mutate .overture/config.json
 export class ConfigManager implements vscode.Disposable {
   private _config: RunMultipleAppsConfig | undefined;
   private _watcher: vscode.FileSystemWatcher | undefined;
@@ -13,13 +13,13 @@ export class ConfigManager implements vscode.Disposable {
   readonly configPath: string;
 
   constructor(private readonly workspaceRoot: string) {
-    this.configPath = path.join(workspaceRoot, ".conductor", "config.json");
+    this.configPath = path.join(workspaceRoot, ".overture", "config.json");
     this._setupWatcher();
   }
 
   // @group Configuration : Watch config file for external edits
   private _setupWatcher(): void {
-    const pattern = new vscode.RelativePattern(this.workspaceRoot, ".conductor/config.json");
+    const pattern = new vscode.RelativePattern(this.workspaceRoot, ".overture/config.json");
     this._watcher = vscode.workspace.createFileSystemWatcher(pattern);
 
     const reload = async () => {

@@ -8,7 +8,7 @@ export class LogManager {
   private _retentionDays: number = 7;
 
   constructor(workspaceRoot: string) {
-    this._logsDir = path.join(workspaceRoot, ".conductor", "logs");
+    this._logsDir = path.join(workspaceRoot, ".overture", "logs");
   }
 
   // @group Configuration : Apply config settings to log manager

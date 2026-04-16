@@ -288,7 +288,7 @@ export class AppRunner implements vscode.Disposable {
 
     if (!fs.existsSync(appPath)) {
       vscode.window.showErrorMessage(
-        `Conductor: Path not found for "${config.name}": ${appPath}`
+        `Overture: Path not found for "${config.name}": ${appPath}`
       );
       entry.status = "error";
       this._onDidChangeState.fire();
