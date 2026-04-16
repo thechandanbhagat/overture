@@ -1,0 +1,10 @@
+.vscode/**
+.vscode-test/**
+src/**
+.gitignore
+tsconfig.json
+node_modules/**
+excluded/**
+.conductor/logs/**
+.conductor/.state.json
+out/test/**
