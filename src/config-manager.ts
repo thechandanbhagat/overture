@@ -89,18 +89,17 @@ export class ConfigManager implements vscode.Disposable {
 
   // @group Configuration : Append new apps, skipping duplicates by name
   async addApps(apps: AppConfig[]): Promise<void> {
-    let config: RunMultipleAppsConfig;
     if (this.exists()) {
-      config = this._config ?? (await this.load());
+      this._config = this._config ?? (await this.load());
     } else {
       const dir = path.dirname(this.configPath);
       if (!fs.existsSync(dir)) { fs.mkdirSync(dir, { recursive: true }); }
-      config = { retentionDays: 7, profiles: {}, apps: [] };
+      this._config = { retentionDays: 7, profiles: {}, apps: [] };
     }
-    const existing = new Set(config.apps.map((a) => a.name));
+    const existing = new Set(this._config.apps.map((a) => a.name));
     let added = 0;
     for (const app of apps) {
-      if (!existing.has(app.name)) { config.apps.push(app); added++; }
+      if (!existing.has(app.name)) { this._config.apps.push(app); added++; }
     }
     if (added > 0) { this._save(); }
   }
