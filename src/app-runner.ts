@@ -51,10 +51,12 @@ class AppPseudoTerminal implements vscode.Pseudoterminal {
       false  // header is decorative — don't write to log
     );
 
+    const isWin = process.platform === "win32";
     this._proc = child_process.spawn(this.config.command, [], {
       cwd: this.appPath,
       shell: true,
       env: process.env,
+      detached: !isWin, // new process group so we can kill the whole tree
     });
 
     this.on.start(this._proc.pid);
@@ -103,7 +105,22 @@ class AppPseudoTerminal implements vscode.Pseudoterminal {
 
   private _kill(): void {
     if (this._proc && !this._proc.killed) {
-      this._proc.kill("SIGTERM");
+      const pid = this._proc.pid;
+      if (pid) {
+        if (process.platform === "win32") {
+          // /T kills the entire process tree, /F forces termination
+          try {
+            child_process.execSync(`taskkill /F /PID ${pid} /T`, { stdio: "ignore" });
+          } catch { /* process may have already exited */ }
+        } else {
+          // Kill the entire process group to avoid orphaned children
+          try {
+            process.kill(-pid, "SIGTERM");
+          } catch { /* group may have already exited */ }
+        }
+      } else {
+        this._proc.kill("SIGTERM");
+      }
     }
   }
 

@@ -462,4 +462,8 @@ export function activate(context: vscode.ExtensionContext): void {
   initialize();
 }
 
-export function deactivate(): void {}
+export function deactivate(): void {
+  // Ensure all child processes are terminated when the extension is deactivated
+  // (e.g. VS Code exits) so they don't become orphaned and block ports.
+  appRunner?.dispose();
+}
