@@ -20,7 +20,7 @@ Run and manage multiple app processes from a single VS Code sidebar panel — wi
 Install from the `.vsix` file:
 
 ```
-code --install-extension overture-1.0.0.vsix
+code --install-extension overture-1.0.3.vsix
 ```
 
 Or via VS Code: **Extensions → ··· → Install from VSIX**

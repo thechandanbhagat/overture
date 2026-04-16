@@ -2,12 +2,18 @@
   "name": "overture",
   "displayName": "Overture",
   "description": "Orchestrate multiple app processes from a VS Code sidebar — terminals, profiles, logs, and auto-discovery.",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "publisher": "thechandanbhagat",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/thechandanbhagat/overture.git"
+  },
   "engines": {
     "vscode": "^1.85.0"
   },
-  "categories": ["Other"],
+  "categories": [
+    "Other"
+  ],
   "activationEvents": [
     "workspaceContains:.overture/config.json",
     "onView:overtureView"
