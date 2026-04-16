@@ -2,7 +2,7 @@
   "name": "overture",
   "displayName": "Overture",
   "description": "Orchestrate multiple app processes from a VS Code sidebar — terminals, profiles, logs, and auto-discovery.",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "publisher": "thechandanbhagat",
   "engines": {
     "vscode": "^1.85.0"
