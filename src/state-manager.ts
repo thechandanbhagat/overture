@@ -77,7 +77,13 @@ export class StateManager {
         // /T kills the process tree, /F forces termination
         child_process.execSync(`taskkill /F /PID ${pid} /T`, { stdio: "ignore" });
       } else {
-        process.kill(pid, "SIGTERM");
+        // Kill the entire process group to avoid orphaned children
+        try {
+          process.kill(-pid, "SIGTERM");
+        } catch {
+          // Fallback: kill just the process (may not be a group leader)
+          process.kill(pid, "SIGTERM");
+        }
       }
     } catch {
       // Process may have already exited — ignore
