@@ -1,270 +1,270 @@
 {
-  "name": "conductor",
-  "displayName": "Conductor",
+  "name": "overture",
+  "displayName": "Overture",
   "description": "Orchestrate multiple app processes from a VS Code sidebar — terminals, profiles, logs, and auto-discovery.",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "publisher": "thechandanbhagat",
   "engines": {
     "vscode": "^1.85.0"
   },
   "categories": ["Other"],
   "activationEvents": [
-    "workspaceContains:.conductor/config.json",
-    "onView:conductorView"
+    "workspaceContains:.overture/config.json",
+    "onView:overtureView"
   ],
   "main": "./out/extension.js",
   "contributes": {
     "viewsContainers": {
       "activitybar": [
         {
-          "id": "conductor",
-          "title": "Conductor",
+          "id": "overture",
+          "title": "Overture",
           "icon": "resources/icon.svg"
         }
       ]
     },
     "views": {
-      "conductor": [
+      "overture": [
         {
-          "id": "conductorView",
+          "id": "overtureView",
           "name": "Apps"
         }
       ]
     },
     "viewsWelcome": [
       {
-        "view": "conductorView",
-        "contents": "No .runapps/config.json found in this workspace.\n\n[Create Config](command:conductor.createConfig)\n\nOr manually create a .runapps/config.json file.",
-        "when": "conductor.noConfig"
+        "view": "overtureView",
+        "contents": "No .overture/config.json found in this workspace.\n\n[Create Config](command:overture.createConfig)\n\nOr manually create a .overture/config.json file.",
+        "when": "overture.noConfig"
       }
     ],
     "commands": [
       {
-        "command": "conductor.startAll",
+        "command": "overture.startAll",
         "title": "Start All Enabled Apps",
         "icon": "$(run-all)",
-        "category": "Conductor"
+        "category": "Overture"
       },
       {
-        "command": "conductor.stopAll",
+        "command": "overture.stopAll",
         "title": "Stop All Apps",
         "icon": "$(stop-circle)",
-        "category": "Conductor"
+        "category": "Overture"
       },
       {
-        "command": "conductor.refresh",
+        "command": "overture.refresh",
         "title": "Refresh",
         "icon": "$(refresh)",
-        "category": "Conductor"
+        "category": "Overture"
       },
       {
-        "command": "conductor.openConfig",
+        "command": "overture.openConfig",
         "title": "Open Config",
         "icon": "$(gear)",
-        "category": "Conductor"
+        "category": "Overture"
       },
       {
-        "command": "conductor.createConfig",
+        "command": "overture.createConfig",
         "title": "Create Config",
         "icon": "$(new-file)",
-        "category": "Conductor"
+        "category": "Overture"
       },
       {
-        "command": "conductor.scanProjects",
+        "command": "overture.scanProjects",
         "title": "Scan Workspace for Node.js Projects",
         "icon": "$(search-view-icon)",
-        "category": "Conductor"
+        "category": "Overture"
       },
       {
-        "command": "conductor.startApp",
+        "command": "overture.startApp",
         "title": "Start App",
         "icon": "$(play)",
-        "category": "Conductor"
+        "category": "Overture"
       },
       {
-        "command": "conductor.stopApp",
+        "command": "overture.stopApp",
         "title": "Stop App",
         "icon": "$(debug-stop)",
-        "category": "Conductor"
+        "category": "Overture"
       },
       {
-        "command": "conductor.restartApp",
+        "command": "overture.restartApp",
         "title": "Restart App",
         "icon": "$(debug-restart)",
-        "category": "Conductor"
+        "category": "Overture"
       },
       {
-        "command": "conductor.toggleEnable",
+        "command": "overture.toggleEnable",
         "title": "Toggle Enable/Disable",
         "icon": "$(circle-slash)",
-        "category": "Conductor"
+        "category": "Overture"
       },
       {
-        "command": "conductor.showOutput",
+        "command": "overture.showOutput",
         "title": "Show Output",
         "icon": "$(output)",
-        "category": "Conductor"
+        "category": "Overture"
       },
       {
-        "command": "conductor.createProfile",
+        "command": "overture.createProfile",
         "title": "Create Profile",
         "icon": "$(add)",
-        "category": "Conductor"
+        "category": "Overture"
       },
       {
-        "command": "conductor.startProfile",
+        "command": "overture.startProfile",
         "title": "Start Profile",
         "icon": "$(play)",
-        "category": "Conductor"
+        "category": "Overture"
       },
       {
-        "command": "conductor.stopProfile",
+        "command": "overture.stopProfile",
         "title": "Stop Profile",
         "icon": "$(debug-stop)",
-        "category": "Conductor"
+        "category": "Overture"
       },
       {
-        "command": "conductor.editProfile",
+        "command": "overture.editProfile",
         "title": "Edit Profile",
         "icon": "$(edit)",
-        "category": "Conductor"
+        "category": "Overture"
       },
       {
-        "command": "conductor.toggleFavoriteProfile",
+        "command": "overture.toggleFavoriteProfile",
         "title": "Toggle Favorite",
         "icon": "$(star)",
-        "category": "Conductor"
+        "category": "Overture"
       },
       {
-        "command": "conductor.deleteProfile",
+        "command": "overture.deleteProfile",
         "title": "Delete Profile",
         "icon": "$(trash)",
-        "category": "Conductor"
+        "category": "Overture"
       },
       {
-        "command": "conductor.toggleArchive",
+        "command": "overture.toggleArchive",
         "title": "Archive / Unarchive App",
         "icon": "$(archive)",
-        "category": "Conductor"
+        "category": "Overture"
       }
     ],
     "menus": {
       "view/title": [
         {
-          "command": "conductor.startAll",
-          "when": "view == conductorView",
+          "command": "overture.startAll",
+          "when": "view == overtureView",
           "group": "navigation@1"
         },
         {
-          "command": "conductor.stopAll",
-          "when": "view == conductorView",
+          "command": "overture.stopAll",
+          "when": "view == overtureView",
           "group": "navigation@2"
         },
         {
-          "command": "conductor.refresh",
-          "when": "view == conductorView",
+          "command": "overture.refresh",
+          "when": "view == overtureView",
           "group": "navigation@3"
         },
         {
-          "command": "conductor.openConfig",
-          "when": "view == conductorView",
+          "command": "overture.openConfig",
+          "when": "view == overtureView",
           "group": "navigation@4"
         },
         {
-          "command": "conductor.scanProjects",
-          "when": "view == conductorView",
+          "command": "overture.scanProjects",
+          "when": "view == overtureView",
           "group": "navigation@5"
         },
         {
-          "command": "conductor.createProfile",
-          "when": "view == conductorView",
+          "command": "overture.createProfile",
+          "when": "view == overtureView",
           "group": "navigation@6"
         }
       ],
       "view/item/context": [
         {
-          "command": "conductor.startApp",
-          "when": "view == conductorView && viewItem == app-stopped",
+          "command": "overture.startApp",
+          "when": "view == overtureView && viewItem == app-stopped",
           "group": "inline@1"
         },
         {
-          "command": "conductor.stopApp",
-          "when": "view == conductorView && (viewItem == app-running || viewItem == app-error)",
+          "command": "overture.stopApp",
+          "when": "view == overtureView && (viewItem == app-running || viewItem == app-error)",
           "group": "inline@1"
         },
         {
-          "command": "conductor.restartApp",
-          "when": "view == conductorView && viewItem == app-running",
+          "command": "overture.restartApp",
+          "when": "view == overtureView && viewItem == app-running",
           "group": "inline@2"
         },
         {
-          "command": "conductor.showOutput",
-          "when": "view == conductorView && (viewItem == app-running || viewItem == app-stopped || viewItem == app-error)",
+          "command": "overture.showOutput",
+          "when": "view == overtureView && (viewItem == app-running || viewItem == app-stopped || viewItem == app-error)",
           "group": "inline@3"
         },
         {
-          "command": "conductor.toggleEnable",
-          "when": "view == conductorView && (viewItem == app-disabled || viewItem == app-stopped || viewItem == app-running || viewItem == app-error)",
+          "command": "overture.toggleEnable",
+          "when": "view == overtureView && (viewItem == app-disabled || viewItem == app-stopped || viewItem == app-running || viewItem == app-error)",
           "group": "inline@4"
         },
         {
-          "command": "conductor.startApp",
-          "when": "view == conductorView && viewItem == app-stopped",
+          "command": "overture.startApp",
+          "when": "view == overtureView && viewItem == app-stopped",
           "group": "1_actions@1"
         },
         {
-          "command": "conductor.stopApp",
-          "when": "view == conductorView && (viewItem == app-running || viewItem == app-error)",
+          "command": "overture.stopApp",
+          "when": "view == overtureView && (viewItem == app-running || viewItem == app-error)",
           "group": "1_actions@1"
         },
         {
-          "command": "conductor.restartApp",
-          "when": "view == conductorView && viewItem == app-running",
+          "command": "overture.restartApp",
+          "when": "view == overtureView && viewItem == app-running",
           "group": "1_actions@2"
         },
         {
-          "command": "conductor.showOutput",
-          "when": "view == conductorView && (viewItem == app-running || viewItem == app-stopped || viewItem == app-error)",
+          "command": "overture.showOutput",
+          "when": "view == overtureView && (viewItem == app-running || viewItem == app-stopped || viewItem == app-error)",
           "group": "2_view@1"
         },
         {
-          "command": "conductor.toggleEnable",
-          "when": "view == conductorView",
+          "command": "overture.toggleEnable",
+          "when": "view == overtureView",
           "group": "3_config@1"
         },
         {
-          "command": "conductor.startProfile",
-          "when": "view == conductorView && (viewItem == profile || viewItem == profile-favorite)",
+          "command": "overture.startProfile",
+          "when": "view == overtureView && (viewItem == profile || viewItem == profile-favorite)",
           "group": "inline@1"
         },
         {
-          "command": "conductor.stopProfile",
-          "when": "view == conductorView && (viewItem == profile || viewItem == profile-favorite)",
+          "command": "overture.stopProfile",
+          "when": "view == overtureView && (viewItem == profile || viewItem == profile-favorite)",
           "group": "inline@2"
         },
         {
-          "command": "conductor.editProfile",
-          "when": "view == conductorView && (viewItem == profile || viewItem == profile-favorite)",
+          "command": "overture.editProfile",
+          "when": "view == overtureView && (viewItem == profile || viewItem == profile-favorite)",
           "group": "inline@3"
         },
         {
-          "command": "conductor.toggleFavoriteProfile",
-          "when": "view == conductorView && (viewItem == profile || viewItem == profile-favorite)",
+          "command": "overture.toggleFavoriteProfile",
+          "when": "view == overtureView && (viewItem == profile || viewItem == profile-favorite)",
           "group": "inline@4"
         },
         {
-          "command": "conductor.deleteProfile",
-          "when": "view == conductorView && (viewItem == profile || viewItem == profile-favorite)",
+          "command": "overture.deleteProfile",
+          "when": "view == overtureView && (viewItem == profile || viewItem == profile-favorite)",
           "group": "inline@5"
         },
         {
-          "command": "conductor.createProfile",
-          "when": "view == conductorView && (viewItem == section-profiles || viewItem == section-favorites)",
+          "command": "overture.createProfile",
+          "when": "view == overtureView && (viewItem == section-profiles || viewItem == section-favorites)",
           "group": "inline@1"
         },
         {
-          "command": "conductor.toggleArchive",
-          "when": "view == conductorView && (viewItem == app-stopped || viewItem == app-disabled || viewItem == app-error || viewItem == app-archived)",
+          "command": "overture.toggleArchive",
+          "when": "view == overtureView && (viewItem == app-stopped || viewItem == app-disabled || viewItem == app-error || viewItem == app-archived)",
           "group": "inline@5"
         }
       ]
