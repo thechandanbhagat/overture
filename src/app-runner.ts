@@ -300,6 +300,8 @@ export class AppRunner implements vscode.Disposable {
 
   // @group BusinessLogic : Spawn the child process inside a VS Code terminal via PTY
   private async _startEntry(entry: AppEntry): Promise<void> {
+    if (entry.status === "running") { return; }
+
     const { config } = entry;
     const appPath = path.resolve(this.workspaceRoot, config.path);
 
@@ -324,17 +326,23 @@ export class AppRunner implements vscode.Disposable {
       },
       exit: (code) => {
         this.stateManager.remove(config.name);
-        entry.status = code === 0 ? "stopped" : "error";
-        entry.pid    = undefined;
-        entry.pty    = undefined;
-        this._onDidChangeState.fire();
+        // Guard: if _killEntry already ran it cleared entry.pty — don't override that status
+        if (entry.pty === pty) {
+          entry.status = code === 0 ? "stopped" : "error";
+          entry.pid    = undefined;
+          entry.pty    = undefined;
+          this._onDidChangeState.fire();
+        }
       },
       error: () => {
         this.stateManager.remove(config.name);
-        entry.status = "error";
-        entry.pid    = undefined;
-        entry.pty    = undefined;
-        this._onDidChangeState.fire();
+        // Guard: if _killEntry already ran it cleared entry.pty — don't override that status
+        if (entry.pty === pty) {
+          entry.status = "error";
+          entry.pid    = undefined;
+          entry.pty    = undefined;
+          this._onDidChangeState.fire();
+        }
       },
     });
 
@@ -365,6 +373,7 @@ export class AppRunner implements vscode.Disposable {
     entry.pid     = undefined;
     entry.pty     = undefined;
     entry.resumed = false;
+    this._onDidChangeState.fire();
   }
 
   dispose(): void {
