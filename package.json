@@ -2,7 +2,7 @@
   "name": "overture",
   "displayName": "Overture",
   "description": "Orchestrate multiple app processes from a VS Code sidebar — terminals, profiles, logs, and auto-discovery.",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "publisher": "thechandanbhagat",
   "repository": {
     "type": "git",
@@ -190,12 +190,12 @@
       "view/item/context": [
         {
           "command": "overture.startApp",
-          "when": "view == overtureView && viewItem == app-stopped",
+          "when": "view == overtureView && (viewItem == app-stopped || viewItem == app-error)",
           "group": "inline@1"
         },
         {
           "command": "overture.stopApp",
-          "when": "view == overtureView && (viewItem == app-running || viewItem == app-error)",
+          "when": "view == overtureView && viewItem == app-running",
           "group": "inline@1"
         },
         {
@@ -215,12 +215,12 @@
         },
         {
           "command": "overture.startApp",
-          "when": "view == overtureView && viewItem == app-stopped",
+          "when": "view == overtureView && (viewItem == app-stopped || viewItem == app-error)",
           "group": "1_actions@1"
         },
         {
           "command": "overture.stopApp",
-          "when": "view == overtureView && (viewItem == app-running || viewItem == app-error)",
+          "when": "view == overtureView && viewItem == app-running",
           "group": "1_actions@1"
         },
         {
