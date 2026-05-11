@@ -124,12 +124,15 @@ export function activate(context: vscode.ExtensionContext): void {
 
     if (!configManager.exists()) {
       vscode.commands.executeCommand("setContext", "overture.noConfig", true);
+      vscode.commands.executeCommand("setContext", "overture.noApps", false);
       return;
     }
 
     try {
       vscode.commands.executeCommand("setContext", "overture.noConfig", false);
       const config = await configManager.load();
+      const hasApps = config.apps.some((a) => !a.archived);
+      vscode.commands.executeCommand("setContext", "overture.noApps", !hasApps);
       logManager!.setConfig(config);
       logManager!.cleanOldLogs(config.retentionDays);
       appRunner!.setApps(config.apps);
@@ -392,9 +395,38 @@ export function activate(context: vscode.ExtensionContext): void {
       if (!requireRoot()) { return; }
       await initialize();
 
+      // No config at all — offer to create one
+      if (!configManager?.exists()) {
+        const action = await vscode.window.showInformationMessage(
+          "No Overture config found. Create one to get started.",
+          "Create & Scan for Projects",
+          "Create Blank Config"
+        );
+        if (action === "Create & Scan for Projects") {
+          configManager!.createDefault();
+          await initialize();
+          await runScan();
+        } else if (action === "Create Blank Config") {
+          configManager!.createDefault();
+          await initialize();
+          vscode.window.showTextDocument(vscode.Uri.file(configManager!.configPath));
+        }
+        return;
+      }
+
       const states = appRunner?.getAllStates() ?? [];
-      if (states.length === 0) {
-        vscode.window.showWarningMessage("No apps configured yet. Add apps first.");
+      const activeApps = states.filter((s) => !s.config.archived);
+      if (activeApps.length === 0) {
+        const action = await vscode.window.showInformationMessage(
+          "No apps configured yet. Scan your workspace for projects or open the config to add apps manually.",
+          "Scan for Projects",
+          "Open Config"
+        );
+        if (action === "Scan for Projects") {
+          await runScan();
+        } else if (action === "Open Config") {
+          vscode.window.showTextDocument(vscode.Uri.file(configManager!.configPath));
+        }
         return;
       }
 
