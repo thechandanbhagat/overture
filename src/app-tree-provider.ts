@@ -33,7 +33,7 @@ export class ProfileItem extends vscode.TreeItem {
     public readonly profileName: string,
     public readonly profileConfig: ProfileConfig
   ) {
-    super(profileName, vscode.TreeItemCollapsibleState.None);
+    super(profileName, vscode.TreeItemCollapsibleState.Collapsed);
     const count = profileConfig.apps.length;
     this.description = `${count} app${count !== 1 ? "s" : ""}`;
     this.contextValue = profileConfig.favorite ? "profile-favorite" : "profile";
@@ -62,7 +62,7 @@ export class AppTreeItem extends vscode.TreeItem {
     public readonly appResumed = false,
     public readonly gitBranch?: string
   ) {
-    super(appName, vscode.TreeItemCollapsibleState.None);
+    super(appName, vscode.TreeItemCollapsibleState.Collapsed);
     this.contextValue = `app-${appStatus}`;
     this.iconPath = AppTreeItem.iconForStatus(appStatus);
     this.description = AppTreeItem.descriptionForStatus(appStatus, appPid, appResumed, gitBranch);
@@ -116,7 +116,26 @@ export class AppTreeItem extends vscode.TreeItem {
   }
 }
 
-export type RunAppsTreeNode = SectionItem | ProfileItem | AppTreeItem;
+// @group Types : App detail sub-node (child of AppTreeItem)
+export class AppDetailItem extends vscode.TreeItem {
+  constructor(label: string, detail: string, icon: string) {
+    super(label, vscode.TreeItemCollapsibleState.None);
+    this.description = detail;
+    this.iconPath = new vscode.ThemeIcon(icon);
+    this.contextValue = "app-detail";
+  }
+}
+
+// @group Types : Profile app sub-node (child of ProfileItem)
+export class ProfileAppItem extends vscode.TreeItem {
+  constructor(public readonly name: string) {
+    super(name, vscode.TreeItemCollapsibleState.None);
+    this.iconPath = new vscode.ThemeIcon("circle-outline");
+    this.contextValue = "profile-app";
+  }
+}
+
+export type RunAppsTreeNode = SectionItem | ProfileItem | AppTreeItem | AppDetailItem | ProfileAppItem;
 
 // @group BusinessLogic : TreeDataProvider — Favorites → Profiles → Apps → Archived
 export class AppTreeProvider
@@ -148,6 +167,12 @@ export class AppTreeProvider
     }
     if (element instanceof SectionItem) {
       return this._childrenForSection(element.sectionId);
+    }
+    if (element instanceof AppTreeItem) {
+      return this._childrenForApp(element);
+    }
+    if (element instanceof ProfileItem) {
+      return element.appNames.map((name) => new ProfileAppItem(name));
     }
     return [];
   }
@@ -229,6 +254,18 @@ export class AppTreeProvider
     }
 
     return [];
+  }
+
+  // @group BusinessLogic : Build detail sub-items for an app node
+  private _childrenForApp(app: AppTreeItem): AppDetailItem[] {
+    const items: AppDetailItem[] = [
+      new AppDetailItem("Command", app.appCommand, "terminal"),
+      new AppDetailItem("Path", app.appPath, "folder"),
+    ];
+    if (app.appPid) {
+      items.push(new AppDetailItem("PID", String(app.appPid), "info"));
+    }
+    return items;
   }
 
   dispose(): void {
