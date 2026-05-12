@@ -6,6 +6,22 @@ import { AppConfig, AppState, AppStatus } from "./types";
 import { LogManager } from "./log-manager";
 import { StateManager } from "./state-manager";
 
+// @group Utilities : Get the current git branch for the given directory
+function getGitBranch(dirPath: string): string | undefined {
+  try {
+    const result = child_process.execSync('git rev-parse --abbrev-ref HEAD', {
+      cwd: dirPath,
+      stdio: ['ignore', 'pipe', 'ignore'],
+      timeout: 3000,
+      encoding: 'utf8',
+    }) as unknown as string;
+    const branch = result.trim();
+    return branch === 'HEAD' ? undefined : branch; // detached HEAD → undefined
+  } catch {
+    return undefined;
+  }
+}
+
 // @group Utilities : Strip ANSI escape codes for clean log file output
 function stripAnsi(text: string): string {
   // eslint-disable-next-line no-control-regex
@@ -72,11 +88,19 @@ class AppPseudoTerminal implements vscode.Pseudoterminal {
     this._proc.on("exit", (code, signal) => {
       const reason = signal ? `killed by signal ${signal}` : `exited with code ${code}`;
       this._emit(`\r\n\x1b[2m■  ${reason}\x1b[0m\r\n`, false);
+      if (code !== 0 && !signal) {
+        this._emit(`\x1b[33mCheck the output above to diagnose the failure.\x1b[0m\r\n`, false);
+      }
       this._logStream?.write(`[exit] ${reason}\n`);
       this._logStream?.end();
       this._logStream = undefined;
       this._proc = undefined;
-      this._closeEmitter.fire(code ?? undefined);
+      // Only close the terminal tab when we deliberately killed or closed it.
+      // When the process exits naturally (crash / error), keep the tab open so
+      // the user can read the full output before the terminal disappears.
+      if (this._closedByUs) {
+        this._closeEmitter.fire(code ?? undefined);
+      }
       this.on.exit(code);
     });
 
@@ -89,7 +113,11 @@ class AppPseudoTerminal implements vscode.Pseudoterminal {
   // @group BusinessLogic : Called by VS Code when user closes the terminal tab
   close(): void {
     this._closedByUs = true;
-    this._kill();
+    if (this._proc) {
+      this._kill(); // exit handler will fire _closeEmitter
+    } else {
+      this._closeEmitter.fire(undefined); // process already gone, close tab now
+    }
   }
 
   // @group BusinessLogic : Forward keystrokes into the process stdin (interactive support)
@@ -100,7 +128,11 @@ class AppPseudoTerminal implements vscode.Pseudoterminal {
   // @group BusinessLogic : Kill the process externally (stop button)
   kill(): void {
     this._closedByUs = true;
-    this._kill();
+    if (this._proc) {
+      this._kill(); // exit handler will fire _closeEmitter
+    } else {
+      this._closeEmitter.fire(undefined); // process already gone, close tab now
+    }
   }
 
   private _kill(): void {
@@ -149,6 +181,7 @@ interface AppEntry {
   pty?: AppPseudoTerminal;
   terminal?: vscode.Terminal;
   resumed?: boolean; // true = process detected from previous session, no PTY
+  gitBranch?: string;
 }
 
 // @group BusinessLogic : Spawn, track, and stop child processes for each app
@@ -189,10 +222,17 @@ export class AppRunner implements vscode.Disposable {
         } else if (!config.enabled && existing.status !== "running") {
           existing.status = "disabled";
         }
+        // Refresh branch for non-running apps (running apps capture branch at start time)
+        if (existing.status !== "running") {
+          const appPath = path.resolve(this.workspaceRoot, config.path);
+          existing.gitBranch = fs.existsSync(appPath) ? getGitBranch(appPath) : undefined;
+        }
       } else {
+        const appPath = path.resolve(this.workspaceRoot, config.path);
         this._apps.set(config.name, {
           config,
           status: config.archived ? "archived" : config.enabled ? "stopped" : "disabled",
+          gitBranch: fs.existsSync(appPath) ? getGitBranch(appPath) : undefined,
         });
       }
     }
@@ -204,6 +244,7 @@ export class AppRunner implements vscode.Disposable {
       status: e.status,
       pid: e.pid,
       resumed: e.resumed,
+      gitBranch: e.gitBranch,
     }));
   }
 
@@ -318,6 +359,9 @@ export class AppRunner implements vscode.Disposable {
     entry.pty?.kill();
     entry.terminal?.dispose();
 
+    // Capture the current branch at start time so running apps always show their start branch
+    entry.gitBranch = getGitBranch(appPath);
+
     const pty = new AppPseudoTerminal(config, appPath, this.logManager, {
       start: (pid) => {
         entry.pid = pid;
@@ -347,7 +391,7 @@ export class AppRunner implements vscode.Disposable {
     });
 
     const terminal = vscode.window.createTerminal({
-      name: `▶ ${config.name}`,
+      name: config.name,
       pty,
       iconPath: new vscode.ThemeIcon("play"),
     });

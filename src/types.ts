@@ -26,4 +26,5 @@ export interface AppState {
   status: AppStatus;
   pid?: number;
   resumed?: boolean; // true when process was detected from a previous session
+  gitBranch?: string;
 }

@@ -42,6 +42,11 @@
         "view": "overtureView",
         "contents": "No .overture/config.json found in this workspace.\n\n[Create Config](command:overture.createConfig)\n\nOr manually create a .overture/config.json file.",
         "when": "overture.noConfig"
+      },
+      {
+        "view": "overtureView",
+        "contents": "Config created! Add apps to get started.\n\n[Scan for Projects](command:overture.scanProjects)\n\n[Open Config](command:overture.openConfig)",
+        "when": "!overture.noConfig && overture.noApps"
       }
     ],
     "commands": [

@@ -59,18 +59,20 @@ export class AppTreeItem extends vscode.TreeItem {
     public readonly appCommand: string,
     public readonly appPath: string,
     public readonly appPid: number | undefined,
-    public readonly appResumed = false
+    public readonly appResumed = false,
+    public readonly gitBranch?: string
   ) {
     super(appName, vscode.TreeItemCollapsibleState.None);
     this.contextValue = `app-${appStatus}`;
     this.iconPath = AppTreeItem.iconForStatus(appStatus);
-    this.description = AppTreeItem.descriptionForStatus(appStatus, appPid, appResumed);
+    this.description = AppTreeItem.descriptionForStatus(appStatus, appPid, appResumed, gitBranch);
     this.tooltip = new vscode.MarkdownString(
       [
         `**${appName}**`,
         "",
         `Command: \`${appCommand}\``,
         `Path: \`${appPath}\``,
+        gitBranch ? `Branch: \`${gitBranch}\`` : "",
         `Status: ${appStatus}`,
         appPid ? `PID: ${appPid}` : "",
       ]
@@ -97,17 +99,19 @@ export class AppTreeItem extends vscode.TreeItem {
   static descriptionForStatus(
     status: AppStatus,
     pid: number | undefined,
-    resumed = false
+    resumed = false,
+    gitBranch?: string
   ): string {
+    const branch = gitBranch ? `  ⎏ ${gitBranch}` : "";
     switch (status) {
       case "running":
         return pid
-          ? `${resumed ? "↩ resumed" : "running"}  (pid ${pid})`
-          : "running";
-      case "error":    return "exited with error";
+          ? `${resumed ? "↩ resumed" : "running"}  (pid ${pid})${branch}`
+          : `running${branch}`;
+      case "error":    return `exited with error${branch}`;
       case "disabled": return "disabled";
       case "archived": return "archived";
-      default:         return "";
+      default:         return gitBranch ? `⎏ ${gitBranch}` : "";
     }
   }
 }
@@ -210,7 +214,7 @@ export class AppTreeProvider
         .filter((s) => !s.config.archived)
         .map(
           (s) =>
-            new AppTreeItem(s.config.name, s.status, s.config.command, s.config.path, s.pid, s.resumed)
+            new AppTreeItem(s.config.name, s.status, s.config.command, s.config.path, s.pid, s.resumed, s.gitBranch)
         );
     }
 
@@ -220,7 +224,7 @@ export class AppTreeProvider
         .filter((s) => s.config.archived)
         .map(
           (s) =>
-            new AppTreeItem(s.config.name, s.status, s.config.command, s.config.path, s.pid, s.resumed)
+            new AppTreeItem(s.config.name, s.status, s.config.command, s.config.path, s.pid, s.resumed, s.gitBranch)
         );
     }
 
