@@ -12,6 +12,8 @@ Run and manage multiple app processes from a single VS Code sidebar panel — wi
 - **Auto-scan** — detects all Node.js projects in your workspace and lists their npm scripts
 - **Enable / Disable** — toggle apps on or off without removing them from config
 - **Log retention** — old logs are auto-cleaned after a configurable number of days (default: 7)
+- **Git branch display** — each app shows its current git branch in the sidebar (`⎇ main`) and hover tooltip
+- **First-run welcome panel** — guided empty-state panel with inline action buttons when no apps are configured yet
 
 ---
 
@@ -20,7 +22,7 @@ Run and manage multiple app processes from a single VS Code sidebar panel — wi
 Install from the `.vsix` file:
 
 ```
-code --install-extension overture-1.0.3.vsix
+code --install-extension overture-1.1.0.vsix
 ```
 
 Or via VS Code: **Extensions → ··· → Install from VSIX**
@@ -166,3 +168,12 @@ The bottom-left status bar shows the running count:
 
 - `▶ Overture` — nothing running, click to start all
 - `● 2/3 running` — 2 of 3 enabled apps are running, click to start remaining
+
+---
+
+## Contributors
+
+| Name | Contributions |
+|------|---------------|
+| [Chandan Bhagat](https://github.com/thechandanbhagat) | Creator and maintainer |
+| [Gayathri Polubothu](https://github.com/gayathri-polubothu) | Git branch display, first-run UX improvements, tree view refinements |
