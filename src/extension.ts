@@ -389,6 +389,19 @@ export function activate(context: vscode.ExtensionContext): void {
       }
     ),
 
+    // @group Configuration : Toggle the "show disabled apps" setting
+    vscode.commands.registerCommand("overture.toggleShowDisabledApps", async () => {
+      const cfg = vscode.workspace.getConfiguration("overture");
+      const current = cfg.get<boolean>("showDisabledApps", true);
+      await cfg.update("showDisabledApps", !current, vscode.ConfigurationTarget.Global);
+    }),
+
+    vscode.workspace.onDidChangeConfiguration((e) => {
+      if (e.affectsConfiguration("overture.showDisabledApps")) {
+        treeProvider?.refresh();
+      }
+    }),
+
     // @group BusinessLogic : Keep an app's git decoration current as its files are edited.
     //                        Changes made outside the editor (commits, checkouts, CLI edits) are
     //                        picked up on the next refresh or config reload.

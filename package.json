@@ -170,8 +170,24 @@
         "title": "Reveal in File Explorer",
         "icon": "$(folder-opened)",
         "category": "Overture"
+      },
+      {
+        "command": "overture.toggleShowDisabledApps",
+        "title": "Toggle Disabled Apps",
+        "icon": "$(eye)",
+        "category": "Overture"
       }
     ],
+    "configuration": {
+      "title": "Overture",
+      "properties": {
+        "overture.showDisabledApps": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show disabled apps in the Overture sidebar tree."
+        }
+      }
+    },
     "menus": {
       "view/title": [
         {

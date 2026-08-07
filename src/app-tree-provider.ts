@@ -342,10 +342,18 @@ export class AppTreeProvider
       .map((entry) => new AppFileItem(path.join(dirPath, entry.name), entry.isDirectory()));
   }
 
+  // @group Configuration : Whether disabled apps should be shown, per user setting
+  private _showDisabledApps(): boolean {
+    return vscode.workspace.getConfiguration("overture").get<boolean>("showDisabledApps", true);
+  }
+
   private _visibleStates(states: AppState[]): AppState[] {
-    return states.filter(
+    const inNamespace = states.filter(
       (s) => !this._activeNamespace || namespaceOf(s.config) === this._activeNamespace
     );
+    return this._showDisabledApps()
+      ? inNamespace
+      : inNamespace.filter((s) => s.status !== "disabled");
   }
 
   // @group Utilities : Non-archived apps the sidebar should currently show
