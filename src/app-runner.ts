@@ -2,7 +2,7 @@ import * as vscode from "vscode";
 import * as child_process from "child_process";
 import * as fs from "fs";
 import * as path from "path";
-import { AppConfig, AppState, AppStatus, GitStatus } from "./types";
+import { AppConfig, AppState, AppStatus, GitStatus, collectNamespaces, namespaceOf } from "./types";
 import { LogManager } from "./log-manager";
 import { StateManager } from "./state-manager";
 
@@ -381,20 +381,29 @@ export class AppRunner implements vscode.Disposable {
     }
   }
 
-  async startAll(): Promise<void> {
+  // @group BusinessLogic : Start every enabled app, limited to one namespace when the sidebar
+  //                        is filtered to it (undefined = all namespaces)
+  async startAll(namespace?: string): Promise<void> {
     for (const entry of this._apps.values()) {
+      if (namespace && namespaceOf(entry.config) !== namespace) { continue; }
       if (entry.config.enabled && !entry.config.archived && entry.status !== "running") {
         await this._startEntry(entry);
       }
     }
   }
 
-  async stopAll(): Promise<void> {
+  async stopAll(namespace?: string): Promise<void> {
     for (const entry of this._apps.values()) {
+      if (namespace && namespaceOf(entry.config) !== namespace) { continue; }
       if (entry.status === "running") {
         this._killEntry(entry);
       }
     }
+  }
+
+  // @group Utilities : Namespaces currently in use, "default" first — drives the namespace picker
+  getNamespaces(): string[] {
+    return collectNamespaces(Array.from(this._apps.values(), (e) => e.config));
   }
 
   async startApp(appName: string): Promise<void> {

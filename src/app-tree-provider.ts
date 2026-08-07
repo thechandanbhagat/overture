@@ -3,7 +3,14 @@ import * as fs from "fs";
 import * as path from "path";
 import { AppRunner } from "./app-runner";
 import { appResourceUri, changeSummary } from "./git-decoration-provider";
-import { ProfileConfig, AppStatus, GitStatus } from "./types";
+import {
+  ProfileConfig,
+  AppState,
+  AppStatus,
+  GitStatus,
+  collectNamespaces,
+  namespaceOf,
+} from "./types";
 
 // @group Types : Section header node
 export class SectionItem extends vscode.TreeItem {
@@ -27,6 +34,20 @@ export class SectionItem extends vscode.TreeItem {
       sectionId === "archived"  ? "archive" :
       "list-unordered"
     );
+  }
+}
+
+// @group Types : Namespace group node — only rendered when apps span more than one namespace
+export class NamespaceItem extends vscode.TreeItem {
+  constructor(
+    public readonly namespace: string,
+    appCount: number,
+    runningCount: number
+  ) {
+    super(namespace, vscode.TreeItemCollapsibleState.Expanded);
+    this.description = runningCount > 0 ? `${runningCount}/${appCount} running` : `${appCount}`;
+    this.contextValue = "namespace";
+    this.iconPath = new vscode.ThemeIcon("symbol-namespace");
   }
 }
 
@@ -211,6 +232,7 @@ export class ProfileAppItem extends vscode.TreeItem {
 
 export type RunAppsTreeNode =
   | SectionItem
+  | NamespaceItem
   | ProfileItem
   | AppTreeItem
   | AppDetailItem
@@ -228,11 +250,17 @@ export class AppTreeProvider
   readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
 
   private _profiles: Record<string, ProfileConfig> = {};
+  private _activeNamespace: string | undefined; // undefined = show every namespace
 
   constructor(private readonly runner: AppRunner) {}
 
   setProfiles(profiles: Record<string, ProfileConfig>): void {
     this._profiles = profiles;
+  }
+
+  // @group Configuration : Narrow the tree to a single namespace (undefined = all)
+  setActiveNamespace(namespace: string | undefined): void {
+    this._activeNamespace = namespace;
   }
 
   refresh(): void {
@@ -250,6 +278,11 @@ export class AppTreeProvider
     }
     if (element instanceof SectionItem) {
       return this._childrenForSection(element.sectionId);
+    }
+    if (element instanceof NamespaceItem) {
+      return this._appItems(
+        this._activeApps().filter((s) => namespaceOf(s.config) === element.namespace)
+      );
     }
     if (element instanceof AppTreeItem) {
       return this._childrenForApp(element);
@@ -309,15 +342,43 @@ export class AppTreeProvider
       .map((entry) => new AppFileItem(path.join(dirPath, entry.name), entry.isDirectory()));
   }
 
+  private _visibleStates(states: AppState[]): AppState[] {
+    return states.filter(
+      (s) => !this._activeNamespace || namespaceOf(s.config) === this._activeNamespace
+    );
+  }
+
+  // @group Utilities : Non-archived apps the sidebar should currently show
+  private _activeApps(): AppState[] {
+    return this._visibleStates(this.runner.getAllStates().filter((s) => !s.config.archived));
+  }
+
+  private _appItems(states: AppState[]): AppTreeItem[] {
+    return states.map(
+      (s) =>
+        new AppTreeItem(
+          s.config.name,
+          s.status,
+          s.config.command,
+          s.config.path,
+          s.pid,
+          s.resumed,
+          s.gitBranch,
+          s.gitStatus
+        )
+    );
+  }
+
   private _buildRootSections(): SectionItem[] {
     const sections: SectionItem[] = [];
     const states = this.runner.getAllStates();
     const profiles = Object.entries(this._profiles);
     const favorites = profiles.filter(([, p]) => p.favorite);
     const nonFavorites = profiles.filter(([, p]) => !p.favorite);
-    const activeApps  = states.filter((s) => !s.config.archived);
-    const archivedApps = states.filter((s) => s.config.archived);
+    const activeApps  = this._activeApps();
+    const archivedApps = this._visibleStates(states.filter((s) => s.config.archived));
     const running = activeApps.filter((s) => s.status === "running").length;
+    const appsCount = running > 0 ? `${running}/${activeApps.length} running` : `${activeApps.length}`;
 
     if (favorites.length > 0) {
       sections.push(new SectionItem("favorites", "FAVORITES", `${favorites.length}`));
@@ -335,9 +396,9 @@ export class AppTreeProvider
       new SectionItem(
         "apps",
         "APPS",
-        running > 0
-          ? `${running}/${activeApps.length} running`
-          : `${activeApps.length}`
+        // Surface the filter here — otherwise a namespace-filtered tree is indistinguishable
+        // from one where apps have gone missing.
+        this._activeNamespace ? `${this._activeNamespace} · ${appsCount}` : appsCount
       )
     );
 
@@ -366,23 +427,27 @@ export class AppTreeProvider
     }
 
     if (sectionId === "apps") {
-      return this.runner
-        .getAllStates()
-        .filter((s) => !s.config.archived)
-        .map(
-          (s) =>
-            new AppTreeItem(s.config.name, s.status, s.config.command, s.config.path, s.pid, s.resumed, s.gitBranch)
+      const apps = this._activeApps();
+      const namespaces = collectNamespaces(apps.map((s) => s.config));
+      // One namespace needs no grouping level — which also keeps the tree flat for everyone
+      // who never touches namespaces, and while a namespace filter is active.
+      if (namespaces.length <= 1) {
+        return this._appItems(apps);
+      }
+      return namespaces.map((ns) => {
+        const inNamespace = apps.filter((s) => namespaceOf(s.config) === ns);
+        return new NamespaceItem(
+          ns,
+          inNamespace.length,
+          inNamespace.filter((s) => s.status === "running").length
         );
+      });
     }
 
     if (sectionId === "archived") {
-      return this.runner
-        .getAllStates()
-        .filter((s) => s.config.archived)
-        .map(
-          (s) =>
-            new AppTreeItem(s.config.name, s.status, s.config.command, s.config.path, s.pid, s.resumed, s.gitBranch)
-        );
+      return this._appItems(
+        this._visibleStates(this.runner.getAllStates().filter((s) => s.config.archived))
+      );
     }
 
     return [];

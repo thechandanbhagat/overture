@@ -63,6 +63,9 @@ export class ConfigManager implements vscode.Disposable {
         command: a.command ?? "npm run dev",
         enabled: a.enabled !== false,
         archived: a.archived === true,
+        // Omitted for default-namespace apps so config.json stays as the user wrote it —
+        // every read site resolves the fallback through namespaceOf().
+        ...(a.namespace?.trim() ? { namespace: a.namespace.trim() } : {}),
       })),
     };
 

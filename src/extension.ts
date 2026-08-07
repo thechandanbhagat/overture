@@ -20,6 +20,7 @@ import {
   PRIMARY_SCRIPTS,
 } from "./project-scanner";
 import { AppGitDecorationProvider } from "./git-decoration-provider";
+import { namespaceOf } from "./types";
 
 // @group Utilities : Managers — initialized once a workspace root is known
 let configManager: ConfigManager | undefined;
@@ -33,6 +34,11 @@ export function activate(context: vscode.ExtensionContext): void {
   // even before a workspace folder is open.
   const proxyEmitter = new vscode.EventEmitter<void>();
   let treeProvider: AppTreeProvider | undefined;
+
+  // @group Configuration : Namespace the sidebar is scoped to (undefined = all). Persisted per
+  //                        workspace so a filter set in one project never follows you to another.
+  const NAMESPACE_STATE_KEY = "overture.activeNamespace";
+  let activeNamespace = context.workspaceState.get<string>(NAMESPACE_STATE_KEY);
 
   const proxyDataProvider: vscode.TreeDataProvider<RunAppsTreeNode> = {
     onDidChangeTreeData: proxyEmitter.event,
@@ -71,14 +77,23 @@ export function activate(context: vscode.ExtensionContext): void {
     return root;
   }
 
+  async function setActiveNamespace(namespace: string | undefined): Promise<void> {
+    activeNamespace = namespace;
+    await context.workspaceState.update(NAMESPACE_STATE_KEY, namespace);
+    treeProvider?.setActiveNamespace(namespace);
+    proxyEmitter.fire();
+    updateStatusBar();
+  }
+
   function updateStatusBar(): void {
     if (!appRunner) { return; }
     const states = appRunner.getAllStates();
     const running = states.filter((s) => s.status === "running").length;
     const enabled = states.filter((s) => s.config.enabled).length;
+    const scope = activeNamespace ? ` in "${activeNamespace}"` : "";
     if (running === 0) {
       statusBar.text = `$(play) Overture`;
-      statusBar.tooltip = "Click to start all enabled apps";
+      statusBar.tooltip = `Click to start all enabled apps${scope}`;
     } else {
       statusBar.text = `$(circle-filled) ${running}/${enabled} running`;
       statusBar.tooltip = `${running} of ${enabled} apps running`;
@@ -146,6 +161,16 @@ export function activate(context: vscode.ExtensionContext): void {
       appRunner!.setApps(config.apps);
       appRunner!.resumeFromState();
       treeProvider!.setProfiles(config.profiles ?? {});
+
+      const namespaces = appRunner!.getNamespaces();
+      vscode.commands.executeCommand("setContext", "overture.hasNamespaces", namespaces.length > 1);
+      // A filter pointing at a namespace that no longer exists would leave the sidebar blank
+      // with no obvious cause — drop it instead.
+      if (activeNamespace && !namespaces.includes(activeNamespace)) {
+        await setActiveNamespace(undefined);
+      }
+      treeProvider!.setActiveNamespace(activeNamespace);
+
       proxyEmitter.fire();
       updateStatusBar();
     } catch (e: unknown) {
@@ -265,12 +290,46 @@ export function activate(context: vscode.ExtensionContext): void {
 
     vscode.commands.registerCommand("overture.startAll", async () => {
       if (!requireRoot()) { return; }
-      await appRunner?.startAll();
+      await appRunner?.startAll(activeNamespace);
     }),
 
     vscode.commands.registerCommand("overture.stopAll", async () => {
       if (!requireRoot()) { return; }
-      await appRunner?.stopAll();
+      await appRunner?.stopAll(activeNamespace);
+    }),
+
+    // @group BusinessLogic : Pick the namespace the sidebar is scoped to. The choice is per
+    //                        workspace, so switching projects doesn't inherit an unrelated filter.
+    vscode.commands.registerCommand("overture.selectNamespace", async () => {
+      if (!requireRoot()) { return; }
+      const states = appRunner?.getAllStates() ?? [];
+      const namespaces = appRunner?.getNamespaces() ?? [];
+      const countFor = (ns: string) =>
+        states.filter((s) => namespaceOf(s.config) === ns).length;
+
+      const describe = (count: number, current: boolean) =>
+        `${count} app${count === 1 ? "" : "s"}${current ? " · current" : ""}`;
+
+      const picked = await vscode.window.showQuickPick(
+        [
+          {
+            label: "$(list-flat) All namespaces",
+            description: describe(states.length, !activeNamespace),
+            namespace: undefined as string | undefined,
+          },
+          ...namespaces.map((ns) => ({
+            label: `$(symbol-namespace) ${ns}`,
+            description: describe(countFor(ns), ns === activeNamespace),
+            namespace: ns as string | undefined,
+          })),
+        ],
+        {
+          title: "Overture: Filter Apps by Namespace",
+          placeHolder: activeNamespace ?? "All namespaces",
+        }
+      );
+      if (!picked) { return; }
+      await setActiveNamespace(picked.namespace);
     }),
 
     vscode.commands.registerCommand("overture.refresh", () => initialize()),
