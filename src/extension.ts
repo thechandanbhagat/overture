@@ -16,6 +16,7 @@ import {
   generateAppName,
   PRIMARY_SCRIPTS,
 } from "./project-scanner";
+import { AppGitDecorationProvider } from "./git-decoration-provider";
 
 // @group Utilities : Managers — initialized once a workspace root is known
 let configManager: ConfigManager | undefined;
@@ -115,9 +116,13 @@ export function activate(context: vscode.ExtensionContext): void {
         prevRunningCount = runningCount;
       });
 
+      const gitDecorations = new AppGitDecorationProvider(appRunner);
+
       context.subscriptions.push(
         configManager,
         treeProvider,
+        gitDecorations,
+        vscode.window.registerFileDecorationProvider(gitDecorations),
         { dispose: () => appRunner?.dispose() }
       );
     }
@@ -310,6 +315,15 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand("overture.showOutput", (item: AppTreeItem) => {
       if (!requireRoot() || !item?.appName) { return; }
       appRunner?.showOutput(item.appName);
+    }),
+
+    // @group BusinessLogic : Keep an app's git decoration current as its files are edited.
+    //                        Changes made outside the editor (commits, checkouts, CLI edits) are
+    //                        picked up on the next refresh or config reload.
+    vscode.workspace.onDidSaveTextDocument((doc) => {
+      if (doc.uri.scheme === "file") {
+        appRunner?.refreshGitStatusForPath(doc.uri.fsPath);
+      }
     }),
 
     // @group BusinessLogic : Stop all apps belonging to a profile

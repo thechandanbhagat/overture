@@ -2,24 +2,63 @@ import * as vscode from "vscode";
 import * as child_process from "child_process";
 import * as fs from "fs";
 import * as path from "path";
-import { AppConfig, AppState, AppStatus } from "./types";
+import { AppConfig, AppState, AppStatus, GitStatus } from "./types";
 import { LogManager } from "./log-manager";
 import { StateManager } from "./state-manager";
 
-// @group Utilities : Get the current git branch for the given directory
-function getGitBranch(dirPath: string): string | undefined {
-  try {
-    const result = child_process.execSync('git rev-parse --abbrev-ref HEAD', {
-      cwd: dirPath,
-      stdio: ['ignore', 'pipe', 'ignore'],
-      timeout: 3000,
-      encoding: 'utf8',
-    }) as unknown as string;
-    const branch = result.trim();
-    return branch === 'HEAD' ? undefined : branch; // detached HEAD → undefined
-  } catch {
-    return undefined;
+// @group Utilities : Parse the branch header of `git status --branch` output.
+//                    Handles "main...origin/main [ahead 1]", "main", "HEAD (no branch)"
+//                    (detached) and "No commits yet on main" (fresh repo).
+function parseBranchHeader(header: string): string | undefined {
+  const noCommits = header.match(/^No commits yet on (.+)$/);
+  const branch = noCommits ? noCommits[1].trim() : header.split('...')[0].split(' ')[0];
+  return !branch || branch === 'HEAD' ? undefined : branch;
+}
+
+// @group Utilities : Parse `git status --porcelain=v1 --branch` into branch + change counts.
+//                    Exported for unit tests — the XY status columns are positional and easy to
+//                    misread (X = index, Y = worktree, either being "U" means a merge conflict).
+export function parseGitStatus(output: string): GitStatus {
+  const status: GitStatus = { staged: 0, modified: 0, untracked: 0, conflicted: 0 };
+
+  for (const line of output.split(/\r?\n/)) {
+    if (line.length < 2) { continue; }
+    if (line.startsWith('## ')) {
+      status.branch = parseBranchHeader(line.slice(3).trim());
+      continue;
+    }
+    const x = line[0];
+    const y = line[1];
+    if (x === '?' && y === '?') { status.untracked++; continue; }
+    if (x === '!') { continue; } // ignored — only listed when explicitly requested
+    if (x === 'U' || y === 'U' || (x === 'A' && y === 'A') || (x === 'D' && y === 'D')) {
+      status.conflicted++;
+      continue;
+    }
+    if (x !== ' ') { status.staged++; }
+    if (y !== ' ') { status.modified++; }
   }
+
+  return status;
+}
+
+// @group Utilities : Read branch + working-tree changes for the given directory. Runs off the main
+//                    thread via execFile so it never blocks the extension host — setApps()
+//                    calls this once per app on every config reload, and a blocking execSync
+//                    here previously froze the whole extension for seconds at a time.
+export function getGitStatus(dirPath: string): Promise<GitStatus | undefined> {
+  return new Promise((resolve) => {
+    child_process.execFile(
+      'git',
+      ['status', '--porcelain=v1', '--branch'],
+      // A repo mid-rebase or with a huge untracked tree can outgrow the 1 MB default buffer,
+      // which would surface as an error and silently drop the decoration.
+      { cwd: dirPath, timeout: 3000, maxBuffer: 8 * 1024 * 1024, windowsHide: true },
+      (err, stdout) => {
+        resolve(err ? undefined : parseGitStatus(stdout));
+      }
+    );
+  });
 }
 
 // @group Utilities : Strip ANSI escape codes for clean log file output
@@ -173,6 +212,9 @@ class AppPseudoTerminal implements vscode.Pseudoterminal {
   }
 }
 
+// @group Constants : Debounce window for git status re-reads triggered by file saves
+const GIT_REFRESH_DEBOUNCE_MS = 800;
+
 // @group Types : Internal per-app tracking entry
 interface AppEntry {
   config: AppConfig;
@@ -182,11 +224,13 @@ interface AppEntry {
   terminal?: vscode.Terminal;
   resumed?: boolean; // true = process detected from previous session, no PTY
   gitBranch?: string;
+  gitStatus?: GitStatus;
 }
 
 // @group BusinessLogic : Spawn, track, and stop child processes for each app
 export class AppRunner implements vscode.Disposable {
   private _apps = new Map<string, AppEntry>();
+  private _gitTimers = new Map<string, NodeJS.Timeout>();
   private _onDidChangeState = new vscode.EventEmitter<void>();
 
   readonly onDidChangeState = this._onDidChangeState.event;
@@ -222,20 +266,71 @@ export class AppRunner implements vscode.Disposable {
         } else if (!config.enabled && existing.status !== "running") {
           existing.status = "disabled";
         }
-        // Refresh branch for non-running apps (running apps capture branch at start time)
-        if (existing.status !== "running") {
-          const appPath = path.resolve(this.workspaceRoot, config.path);
-          existing.gitBranch = fs.existsSync(appPath) ? getGitBranch(appPath) : undefined;
-        }
+        this._refreshGitStatus(existing);
       } else {
-        const appPath = path.resolve(this.workspaceRoot, config.path);
-        this._apps.set(config.name, {
+        const entry: AppEntry = {
           config,
           status: config.archived ? "archived" : config.enabled ? "stopped" : "disabled",
-          gitBranch: fs.existsSync(appPath) ? getGitBranch(appPath) : undefined,
-        });
+        };
+        this._apps.set(config.name, entry);
+        this._refreshGitStatus(entry);
       }
     }
+  }
+
+  // @group BusinessLogic : Look up an app's git branch and working-tree changes in the background
+  //                        and refresh the tree when they resolve, without blocking the extension host.
+  private _refreshGitStatus(entry: AppEntry): void {
+    const appPath = path.resolve(this.workspaceRoot, entry.config.path);
+    if (!fs.existsSync(appPath)) {
+      entry.gitBranch = undefined;
+      entry.gitStatus = undefined;
+      return;
+    }
+    getGitStatus(appPath).then((status) => {
+      // Entry may have been replaced or removed while the lookup was in flight
+      if (this._apps.get(entry.config.name) !== entry) {
+        return;
+      }
+      entry.gitStatus = status;
+      // Running apps keep the branch captured at start time, so the row always reports the
+      // branch the process is actually running — even if the worktree has since been switched.
+      if (entry.status !== "running") {
+        entry.gitBranch = status?.branch;
+      }
+      this._onDidChangeState.fire();
+    });
+  }
+
+  // @group BusinessLogic : Re-read git status for whichever app owns fsPath. Debounced because a
+  //                        "save all" or a branch switch fires this once per file.
+  refreshGitStatusForPath(fsPath: string): void {
+    for (const entry of this._apps.values()) {
+      const appPath = path.resolve(this.workspaceRoot, entry.config.path);
+      const rel = path.relative(appPath, fsPath);
+      if (rel && !rel.startsWith("..") && !path.isAbsolute(rel)) {
+        this._debounceGitStatus(entry);
+      }
+    }
+  }
+
+  private _debounceGitStatus(entry: AppEntry): void {
+    const key = entry.config.name;
+    const pending = this._gitTimers.get(key);
+    if (pending) { clearTimeout(pending); }
+    this._gitTimers.set(
+      key,
+      setTimeout(() => {
+        this._gitTimers.delete(key);
+        this._refreshGitStatus(entry);
+      }, GIT_REFRESH_DEBOUNCE_MS)
+    );
+  }
+
+  // @group Utilities : Current git status for an app — O(1) lookup for the decoration provider,
+  //                    which is asked for every visible row on every tree render
+  getGitStatusFor(appName: string): GitStatus | undefined {
+    return this._apps.get(appName)?.gitStatus;
   }
 
   getAllStates(): AppState[] {
@@ -245,6 +340,7 @@ export class AppRunner implements vscode.Disposable {
       pid: e.pid,
       resumed: e.resumed,
       gitBranch: e.gitBranch,
+      gitStatus: e.gitStatus,
     }));
   }
 
@@ -359,8 +455,17 @@ export class AppRunner implements vscode.Disposable {
     entry.pty?.kill();
     entry.terminal?.dispose();
 
-    // Capture the current branch at start time so running apps always show their start branch
-    entry.gitBranch = getGitBranch(appPath);
+    // Capture the current branch at start time so running apps always show their start branch.
+    // Resolved in the background so starting an app is never delayed by the git lookup.
+    entry.gitBranch = undefined;
+    entry.gitStatus = undefined;
+    getGitStatus(appPath).then((status) => {
+      if (this._apps.get(config.name) === entry && entry.status === "running") {
+        entry.gitBranch = status?.branch;
+        entry.gitStatus = status;
+        this._onDidChangeState.fire();
+      }
+    });
 
     const pty = new AppPseudoTerminal(config, appPath, this.logManager, {
       start: (pid) => {
@@ -421,6 +526,10 @@ export class AppRunner implements vscode.Disposable {
   }
 
   dispose(): void {
+    for (const timer of this._gitTimers.values()) {
+      clearTimeout(timer);
+    }
+    this._gitTimers.clear();
     for (const entry of this._apps.values()) {
       this._killEntry(entry);
       entry.terminal?.dispose();

@@ -1,6 +1,7 @@
 import * as vscode from "vscode";
 import { AppRunner } from "./app-runner";
-import { ProfileConfig, AppStatus } from "./types";
+import { appResourceUri, changeSummary } from "./git-decoration-provider";
+import { ProfileConfig, AppStatus, GitStatus } from "./types";
 
 // @group Types : Section header node
 export class SectionItem extends vscode.TreeItem {
@@ -60,12 +61,15 @@ export class AppTreeItem extends vscode.TreeItem {
     public readonly appPath: string,
     public readonly appPid: number | undefined,
     public readonly appResumed = false,
-    public readonly gitBranch?: string
+    public readonly gitBranch?: string,
+    public readonly gitStatus?: GitStatus
   ) {
     super(appName, vscode.TreeItemCollapsibleState.Collapsed);
     this.contextValue = `app-${appStatus}`;
     this.iconPath = AppTreeItem.iconForStatus(appStatus);
     this.description = AppTreeItem.descriptionForStatus(appStatus, appPid, appResumed, gitBranch);
+    this.resourceUri = appResourceUri(appName); // carries the git decoration for this app
+    const changes = gitStatus ? changeSummary(gitStatus) : "";
     this.tooltip = new vscode.MarkdownString(
       [
         `**${appName}**`,
@@ -73,6 +77,7 @@ export class AppTreeItem extends vscode.TreeItem {
         `Command: \`${appCommand}\``,
         `Path: \`${appPath}\``,
         gitBranch ? `Branch: \`${gitBranch}\`` : "",
+        changes ? `Changes: ${changes}` : "",
         `Status: ${appStatus}`,
         appPid ? `PID: ${appPid}` : "",
       ]
