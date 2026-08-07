@@ -4,6 +4,8 @@ import { AppRunner } from "./app-runner";
 import {
   AppTreeProvider,
   AppTreeItem,
+  AppDetailItem,
+  AppFileItem,
   ProfileItem,
   RunAppsTreeNode,
 } from "./app-tree-provider";
@@ -316,6 +318,16 @@ export function activate(context: vscode.ExtensionContext): void {
       if (!requireRoot() || !item?.appName) { return; }
       appRunner?.showOutput(item.appName);
     }),
+
+    // @group BusinessLogic : Reveal a file explorer node (Path detail, folder, or file) in the OS file manager
+    vscode.commands.registerCommand(
+      "overture.revealInExplorer",
+      (item: AppDetailItem | AppFileItem) => {
+        const target = item instanceof AppFileItem ? item.fsPath : item.dirPath;
+        if (!target) { return; }
+        vscode.commands.executeCommand("revealFileInOS", vscode.Uri.file(target));
+      }
+    ),
 
     // @group BusinessLogic : Keep an app's git decoration current as its files are edited.
     //                        Changes made outside the editor (commits, checkouts, CLI edits) are

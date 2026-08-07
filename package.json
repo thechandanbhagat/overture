@@ -158,6 +158,12 @@
         "title": "Archive / Unarchive App",
         "icon": "$(archive)",
         "category": "Overture"
+      },
+      {
+        "command": "overture.revealInExplorer",
+        "title": "Reveal in File Explorer",
+        "icon": "$(folder-opened)",
+        "category": "Overture"
       }
     ],
     "menus": {
@@ -278,6 +284,11 @@
           "command": "overture.toggleArchive",
           "when": "view == overtureView && (viewItem == app-stopped || viewItem == app-disabled || viewItem == app-error || viewItem == app-archived)",
           "group": "inline@5"
+        },
+        {
+          "command": "overture.revealInExplorer",
+          "when": "view == overtureView && (viewItem == app-detail-path || viewItem == app-folder || viewItem == app-file)",
+          "group": "inline@1"
         }
       ]
     }

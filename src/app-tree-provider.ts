@@ -1,4 +1,6 @@
 import * as vscode from "vscode";
+import * as fs from "fs";
+import * as path from "path";
 import { AppRunner } from "./app-runner";
 import { appResourceUri, changeSummary } from "./git-decoration-provider";
 import { ProfileConfig, AppStatus, GitStatus } from "./types";
@@ -121,13 +123,71 @@ export class AppTreeItem extends vscode.TreeItem {
   }
 }
 
-// @group Types : App detail sub-node (child of AppTreeItem)
+// @group Types : App detail sub-node (child of AppTreeItem). The "Path" detail is
+//               expandable into a file explorer rooted at dirPath.
 export class AppDetailItem extends vscode.TreeItem {
-  constructor(label: string, detail: string, icon: string) {
-    super(label, vscode.TreeItemCollapsibleState.None);
+  constructor(
+    label: string,
+    detail: string,
+    icon: string,
+    public readonly dirPath?: string
+  ) {
+    super(
+      label,
+      dirPath ? vscode.TreeItemCollapsibleState.Collapsed : vscode.TreeItemCollapsibleState.None
+    );
     this.description = detail;
     this.iconPath = new vscode.ThemeIcon(icon);
-    this.contextValue = "app-detail";
+    this.contextValue = dirPath ? "app-detail-path" : "app-detail";
+  }
+}
+
+// @group Types : Collapsible "Details" group node (child of AppTreeItem) — Command, PID, Logs
+export class AppDetailsGroupItem extends vscode.TreeItem {
+  constructor(
+    public readonly appName: string,
+    public readonly appCommand: string,
+    public readonly appPid?: number
+  ) {
+    super("Details", vscode.TreeItemCollapsibleState.Collapsed);
+    this.iconPath = new vscode.ThemeIcon("list-unordered");
+    this.contextValue = "app-details-group";
+  }
+}
+
+// @group Types : Collapsible "Logs" group node (child of AppDetailsGroupItem)
+export class AppLogsGroupItem extends vscode.TreeItem {
+  constructor(public readonly appName: string) {
+    super("Logs", vscode.TreeItemCollapsibleState.Collapsed);
+    this.iconPath = new vscode.ThemeIcon("output");
+    this.contextValue = "app-logs-group";
+  }
+}
+
+// @group Types : Single retained log file (child of AppLogsGroupItem) — click opens it in the editor
+export class AppLogFileItem extends vscode.TreeItem {
+  constructor(public readonly filePath: string) {
+    const uri = vscode.Uri.file(filePath);
+    super(uri, vscode.TreeItemCollapsibleState.None);
+    this.resourceUri = uri;
+    this.contextValue = "app-log-file";
+    this.command = { command: "vscode.open", title: "Open Log", arguments: [uri] };
+  }
+}
+
+// @group Types : File/folder node within an app's file explorer sub-tree
+export class AppFileItem extends vscode.TreeItem {
+  constructor(
+    public readonly fsPath: string,
+    public readonly isDirectory: boolean
+  ) {
+    const uri = vscode.Uri.file(fsPath);
+    super(uri, isDirectory ? vscode.TreeItemCollapsibleState.Collapsed : vscode.TreeItemCollapsibleState.None);
+    this.resourceUri = uri;
+    this.contextValue = isDirectory ? "app-folder" : "app-file";
+    if (!isDirectory) {
+      this.command = { command: "vscode.open", title: "Open File", arguments: [uri] };
+    }
   }
 }
 
@@ -140,7 +200,16 @@ export class ProfileAppItem extends vscode.TreeItem {
   }
 }
 
-export type RunAppsTreeNode = SectionItem | ProfileItem | AppTreeItem | AppDetailItem | ProfileAppItem;
+export type RunAppsTreeNode =
+  | SectionItem
+  | ProfileItem
+  | AppTreeItem
+  | AppDetailItem
+  | AppDetailsGroupItem
+  | AppLogsGroupItem
+  | AppLogFileItem
+  | ProfileAppItem
+  | AppFileItem;
 
 // @group BusinessLogic : TreeDataProvider — Favorites → Profiles → Apps → Archived
 export class AppTreeProvider
@@ -179,7 +248,46 @@ export class AppTreeProvider
     if (element instanceof ProfileItem) {
       return element.appNames.map((name) => new ProfileAppItem(name));
     }
+    if (element instanceof AppDetailsGroupItem) {
+      return this._childrenForDetailsGroup(element);
+    }
+    if (element instanceof AppLogsGroupItem) {
+      return this.runner.listLogFiles(element.appName).map((f) => new AppLogFileItem(f));
+    }
+    if (element instanceof AppDetailItem && element.dirPath) {
+      return this._readDir(element.dirPath);
+    }
+    if (element instanceof AppFileItem && element.isDirectory) {
+      return this._readDir(element.fsPath);
+    }
     return [];
+  }
+
+  // @group BusinessLogic : Build children of the "Details" group — Command, PID, Logs
+  private _childrenForDetailsGroup(group: AppDetailsGroupItem): RunAppsTreeNode[] {
+    const items: RunAppsTreeNode[] = [new AppDetailItem("Command", group.appCommand, "terminal")];
+    if (group.appPid) {
+      items.push(new AppDetailItem("PID", String(group.appPid), "info"));
+    }
+    items.push(new AppLogsGroupItem(group.appName));
+    return items;
+  }
+
+  // @group BusinessLogic : List a directory's entries as file explorer nodes (folders first, then files, alphabetical)
+  private _readDir(dirPath: string): AppFileItem[] {
+    let entries: fs.Dirent[];
+    try {
+      entries = fs.readdirSync(dirPath, { withFileTypes: true });
+    } catch {
+      return [];
+    }
+    return entries
+      .sort((a, b) =>
+        a.isDirectory() !== b.isDirectory()
+          ? a.isDirectory() ? -1 : 1
+          : a.name.localeCompare(b.name)
+      )
+      .map((entry) => new AppFileItem(path.join(dirPath, entry.name), entry.isDirectory()));
   }
 
   private _buildRootSections(): SectionItem[] {
@@ -261,16 +369,13 @@ export class AppTreeProvider
     return [];
   }
 
-  // @group BusinessLogic : Build detail sub-items for an app node
-  private _childrenForApp(app: AppTreeItem): AppDetailItem[] {
-    const items: AppDetailItem[] = [
-      new AppDetailItem("Command", app.appCommand, "terminal"),
-      new AppDetailItem("Path", app.appPath, "folder"),
+  // @group BusinessLogic : Build top-level sub-items for an app node — "Details" (Command, PID, Logs)
+  //                        and "Path" (file explorer), both collapsible so they line up visually.
+  private _childrenForApp(app: AppTreeItem): RunAppsTreeNode[] {
+    return [
+      new AppDetailsGroupItem(app.appName, app.appCommand, app.appPid),
+      new AppDetailItem("Path", app.appPath, "folder", this.runner.resolveAppPath(app.appPath)),
     ];
-    if (app.appPid) {
-      items.push(new AppDetailItem("PID", String(app.appPid), "info"));
-    }
-    return items;
   }
 
   dispose(): void {

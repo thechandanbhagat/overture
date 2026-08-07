@@ -333,6 +333,16 @@ export class AppRunner implements vscode.Disposable {
     return this._apps.get(appName)?.gitStatus;
   }
 
+  // @group Utilities : Resolve an app's configured (possibly relative) path against the workspace root
+  resolveAppPath(relativePath: string): string {
+    return path.resolve(this.workspaceRoot, relativePath);
+  }
+
+  // @group Utilities : List an app's retained log files, newest first
+  listLogFiles(appName: string): string[] {
+    return this.logManager.listLogFiles(appName);
+  }
+
   getAllStates(): AppState[] {
     return Array.from(this._apps.values()).map((e) => ({
       config: e.config,

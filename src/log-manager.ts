@@ -60,4 +60,20 @@ export class LogManager {
     const dateStamp = new Date().toISOString().substring(0, 10);
     return path.join(this._logsDir, `${appName}-${dateStamp}.log`);
   }
+
+  // @group LogManagement : List all retained log files for an app, newest first
+  listLogFiles(appName: string): string[] {
+    const escaped = appName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const pattern = new RegExp(`^${escaped}-\\d{4}-\\d{2}-\\d{2}\\.log$`);
+    try {
+      return fs
+        .readdirSync(this._logsDir)
+        .filter((f) => pattern.test(f))
+        .sort()
+        .reverse()
+        .map((f) => path.join(this._logsDir, f));
+    } catch {
+      return [];
+    }
+  }
 }
