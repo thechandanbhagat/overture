@@ -7,6 +7,7 @@ import {
   AppDetailItem,
   AppFileItem,
   ProfileItem,
+  ProfileAppItem,
   RunAppsTreeNode,
 } from "./app-tree-provider";
 import { LogManager } from "./log-manager";
@@ -291,22 +292,22 @@ export function activate(context: vscode.ExtensionContext): void {
       await runScan();
     }),
 
-    vscode.commands.registerCommand("overture.startApp", (item: AppTreeItem) => {
+    vscode.commands.registerCommand("overture.startApp", (item: AppTreeItem | ProfileAppItem) => {
       if (!requireRoot() || !item?.appName) { return; }
       appRunner?.startApp(item.appName);
     }),
 
-    vscode.commands.registerCommand("overture.stopApp", (item: AppTreeItem) => {
+    vscode.commands.registerCommand("overture.stopApp", (item: AppTreeItem | ProfileAppItem) => {
       if (!requireRoot() || !item?.appName) { return; }
       appRunner?.stopApp(item.appName);
     }),
 
-    vscode.commands.registerCommand("overture.restartApp", (item: AppTreeItem) => {
+    vscode.commands.registerCommand("overture.restartApp", (item: AppTreeItem | ProfileAppItem) => {
       if (!requireRoot() || !item?.appName) { return; }
       appRunner?.restartApp(item.appName);
     }),
 
-    vscode.commands.registerCommand("overture.toggleEnable", async (item: AppTreeItem) => {
+    vscode.commands.registerCommand("overture.toggleEnable", async (item: AppTreeItem | ProfileAppItem) => {
       if (!requireRoot() || !item?.appName) { return; }
       if (item.appStatus === "running") {
         await appRunner?.stopApp(item.appName);
@@ -314,7 +315,7 @@ export function activate(context: vscode.ExtensionContext): void {
       await configManager?.toggleEnable(item.appName);
     }),
 
-    vscode.commands.registerCommand("overture.showOutput", (item: AppTreeItem) => {
+    vscode.commands.registerCommand("overture.showOutput", (item: AppTreeItem | ProfileAppItem) => {
       if (!requireRoot() || !item?.appName) { return; }
       appRunner?.showOutput(item.appName);
     }),
@@ -358,7 +359,7 @@ export function activate(context: vscode.ExtensionContext): void {
     }),
 
     // @group BusinessLogic : Toggle archived flag on an app
-    vscode.commands.registerCommand("overture.toggleArchive", async (item: AppTreeItem) => {
+    vscode.commands.registerCommand("overture.toggleArchive", async (item: AppTreeItem | ProfileAppItem) => {
       if (!requireRoot() || !item?.appName) { return; }
       if (item.appStatus === "running") {
         await appRunner?.stopApp(item.appName);

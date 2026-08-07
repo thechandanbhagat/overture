@@ -191,12 +191,21 @@ export class AppFileItem extends vscode.TreeItem {
   }
 }
 
-// @group Types : Profile app sub-node (child of ProfileItem)
+// @group Types : Profile app sub-node (child of ProfileItem) — mirrors the app's live status
+//               and contextValue so it picks up the same start/stop/restart/etc. menu actions.
 export class ProfileAppItem extends vscode.TreeItem {
-  constructor(public readonly name: string) {
-    super(name, vscode.TreeItemCollapsibleState.None);
-    this.iconPath = new vscode.ThemeIcon("circle-outline");
-    this.contextValue = "profile-app";
+  constructor(
+    public readonly appName: string,
+    public readonly appStatus: AppStatus,
+    public readonly appPid?: number,
+    public readonly appResumed = false,
+    public readonly gitBranch?: string
+  ) {
+    super(appName, vscode.TreeItemCollapsibleState.None);
+    this.contextValue = `app-${appStatus}`;
+    this.iconPath = AppTreeItem.iconForStatus(appStatus);
+    this.description = AppTreeItem.descriptionForStatus(appStatus, appPid, appResumed, gitBranch);
+    this.resourceUri = appResourceUri(appName); // carries the git decoration for this app
   }
 }
 
@@ -246,7 +255,17 @@ export class AppTreeProvider
       return this._childrenForApp(element);
     }
     if (element instanceof ProfileItem) {
-      return element.appNames.map((name) => new ProfileAppItem(name));
+      const states = this.runner.getAllStates();
+      return element.appNames.map((name) => {
+        const state = states.find((s) => s.config.name === name);
+        return new ProfileAppItem(
+          name,
+          state?.status ?? "stopped",
+          state?.pid,
+          state?.resumed,
+          state?.gitBranch
+        );
+      });
     }
     if (element instanceof AppDetailsGroupItem) {
       return this._childrenForDetailsGroup(element);
