@@ -78,6 +78,12 @@
       {
         "command": "overture.openConfig",
         "title": "Open Config",
+        "icon": "$(json)",
+        "category": "Overture"
+      },
+      {
+        "command": "overture.openSettings",
+        "title": "Open Settings",
         "icon": "$(gear)",
         "category": "Overture"
       },

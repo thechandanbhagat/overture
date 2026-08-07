@@ -19,6 +19,7 @@ import {
   generateAppName,
   PRIMARY_SCRIPTS,
 } from "./project-scanner";
+import { SettingsPanel } from "./settings-panel";
 import { AppGitDecorationProvider } from "./git-decoration-provider";
 import { namespaceOf } from "./types";
 
@@ -119,7 +120,10 @@ export function activate(context: vscode.ExtensionContext): void {
       const ratingPrompt = new RatingPrompt(context);
       let prevRunningCount = 0;
 
-      configManager.onDidChange(() => initialize());
+      configManager.onDidChange((config) => {
+        initialize();
+        SettingsPanel.refreshIfOpen(config);
+      });
       appRunner.onDidChangeState(() => {
         proxyEmitter.fire();
         updateStatusBar();
@@ -341,6 +345,16 @@ export function activate(context: vscode.ExtensionContext): void {
         return;
       }
       vscode.window.showTextDocument(vscode.Uri.file(configManager.configPath));
+    }),
+
+    vscode.commands.registerCommand("overture.openSettings", async () => {
+      if (!requireRoot()) { return; }
+      await initialize(); // ensure configManager exists
+      if (!configManager!.exists()) {
+        configManager!.createDefault();
+        await initialize();
+      }
+      SettingsPanel.createOrShow(configManager!, () => initialize());
     }),
 
     vscode.commands.registerCommand("overture.createConfig", async () => {

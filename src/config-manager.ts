@@ -162,6 +162,14 @@ export class ConfigManager implements vscode.Disposable {
     this._save();
   }
 
+  // @group Configuration : Wholesale replace the config (used by the settings panel save flow)
+  replaceConfig(config: RunMultipleAppsConfig): void {
+    const dir = path.dirname(this.configPath);
+    if (!fs.existsSync(dir)) { fs.mkdirSync(dir, { recursive: true }); }
+    this._config = config;
+    this._save();
+  }
+
   private _save(): void {
     if (!this._config) { return; }
     fs.writeFileSync(this.configPath, JSON.stringify(this._config, null, 2));
