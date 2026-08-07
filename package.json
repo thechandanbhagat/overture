@@ -324,6 +324,18 @@
           "when": "view == overtureView && (viewItem == app-detail-path || viewItem == app-folder || viewItem == app-file)",
           "group": "inline@1"
         }
+      ],
+      "terminal/context": [
+        {
+          "command": "overture.restartApp",
+          "when": "overture.activeTerminalApp",
+          "group": "overture@1"
+        },
+        {
+          "command": "overture.stopApp",
+          "when": "overture.activeTerminalApp",
+          "group": "overture@2"
+        }
       ]
     }
   },

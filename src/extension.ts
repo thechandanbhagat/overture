@@ -21,6 +21,7 @@ import {
 } from "./project-scanner";
 import { SettingsPanel } from "./settings-panel";
 import { AppGitDecorationProvider } from "./git-decoration-provider";
+import { AppTerminalLinkProvider } from "./terminal-links";
 import { namespaceOf } from "./types";
 
 // @group Utilities : Managers — initialized once a workspace root is known
@@ -61,7 +62,30 @@ export function activate(context: vscode.ExtensionContext): void {
   statusBar.text = `$(play) Overture`;
   statusBar.show();
 
-  context.subscriptions.push(treeView, statusBar, proxyEmitter);
+  // @group Utilities : Restart button that follows the focused app terminal. Sits just left of the
+  //                    global Overture item so the two read as one group.
+  const terminalRestartButton = vscode.window.createStatusBarItem(
+    vscode.StatusBarAlignment.Left,
+    99
+  );
+
+  function updateTerminalRestartButton(appName: string | undefined): void {
+    if (!appName) {
+      terminalRestartButton.hide();
+      return;
+    }
+    terminalRestartButton.text = `$(debug-restart) Restart ${appName}`;
+    terminalRestartButton.tooltip = `Restart ${appName}`;
+    // Carries the app name explicitly — by the time the click lands, focus may have moved on.
+    terminalRestartButton.command = {
+      command: "overture.restartApp",
+      title: "Restart App",
+      arguments: [{ appName }],
+    };
+    terminalRestartButton.show();
+  }
+
+  context.subscriptions.push(treeView, statusBar, terminalRestartButton, proxyEmitter);
 
   // @group Utilities : Get workspace root — always read fresh, never captured
   function getRoot(): string | undefined {
@@ -76,6 +100,13 @@ export function activate(context: vscode.ExtensionContext): void {
       );
     }
     return root;
+  }
+
+  // @group Utilities : Resolve the app owning the currently focused terminal, if any —
+  //                    lets start/stop/restart run from the terminal's right-click menu
+  function activeTerminalAppName(): string | undefined {
+    const terminal = vscode.window.activeTerminal;
+    return terminal ? appRunner?.getAppNameForTerminal(terminal) : undefined;
   }
 
   async function setActiveNamespace(namespace: string | undefined): Promise<void> {
@@ -290,6 +321,10 @@ export function activate(context: vscode.ExtensionContext): void {
 
   // @group Exports : Register all commands — always, regardless of workspace state
   context.subscriptions.push(
+    vscode.window.registerTerminalLinkProvider(
+      new AppTerminalLinkProvider((terminal) => appRunner?.getAppNameForTerminal(terminal))
+    ),
+
     vscode.commands.registerCommand("overture.scanProjects", runScan),
 
     vscode.commands.registerCommand("overture.startAll", async () => {
@@ -370,19 +405,22 @@ export function activate(context: vscode.ExtensionContext): void {
       await runScan();
     }),
 
-    vscode.commands.registerCommand("overture.startApp", (item: AppTreeItem | ProfileAppItem) => {
-      if (!requireRoot() || !item?.appName) { return; }
-      appRunner?.startApp(item.appName);
+    vscode.commands.registerCommand("overture.startApp", (item?: AppTreeItem | ProfileAppItem) => {
+      const appName = item?.appName ?? activeTerminalAppName();
+      if (!requireRoot() || !appName) { return; }
+      appRunner?.startApp(appName);
     }),
 
-    vscode.commands.registerCommand("overture.stopApp", (item: AppTreeItem | ProfileAppItem) => {
-      if (!requireRoot() || !item?.appName) { return; }
-      appRunner?.stopApp(item.appName);
+    vscode.commands.registerCommand("overture.stopApp", (item?: AppTreeItem | ProfileAppItem) => {
+      const appName = item?.appName ?? activeTerminalAppName();
+      if (!requireRoot() || !appName) { return; }
+      appRunner?.stopApp(appName);
     }),
 
-    vscode.commands.registerCommand("overture.restartApp", (item: AppTreeItem | ProfileAppItem) => {
-      if (!requireRoot() || !item?.appName) { return; }
-      appRunner?.restartApp(item.appName);
+    vscode.commands.registerCommand("overture.restartApp", (item?: AppTreeItem | ProfileAppItem) => {
+      const appName = item?.appName ?? activeTerminalAppName();
+      if (!requireRoot() || !appName) { return; }
+      appRunner?.restartApp(appName);
     }),
 
     vscode.commands.registerCommand("overture.toggleEnable", async (item: AppTreeItem | ProfileAppItem) => {
@@ -606,7 +644,21 @@ export function activate(context: vscode.ExtensionContext): void {
       await initialize();
     }),
 
-    vscode.workspace.onDidChangeWorkspaceFolders(() => initialize())
+    vscode.workspace.onDidChangeWorkspaceFolders(() => initialize()),
+
+    // @group Configuration : Track whether the focused terminal belongs to Overture, so the
+    //                        "Restart App" / "Stop App" terminal context-menu items only show there
+    vscode.window.onDidChangeActiveTerminal((terminal) => {
+      const appName = terminal ? appRunner?.getAppNameForTerminal(terminal) : undefined;
+      vscode.commands.executeCommand("setContext", "overture.activeTerminalApp", appName ?? null);
+      updateTerminalRestartButton(appName);
+    })
+  );
+
+  updateTerminalRestartButton(
+    vscode.window.activeTerminal
+      ? appRunner?.getAppNameForTerminal(vscode.window.activeTerminal)
+      : undefined
   );
 
   initialize();

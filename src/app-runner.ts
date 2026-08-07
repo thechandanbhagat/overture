@@ -5,6 +5,7 @@ import * as path from "path";
 import { AppConfig, AppState, AppStatus, GitStatus, collectNamespaces, namespaceOf } from "./types";
 import { LogManager } from "./log-manager";
 import { StateManager } from "./state-manager";
+import { RESTART_LINK, STOP_LINK } from "./terminal-links";
 
 // @group Utilities : Parse the branch header of `git status --branch` output.
 //                    Handles "main...origin/main [ahead 1]", "main", "HEAD (no branch)"
@@ -102,6 +103,7 @@ class AppPseudoTerminal implements vscode.Pseudoterminal {
     this._emit(
       `\x1b[1;36m▶  ${this.config.name}\x1b[0m\r\n` +
       `\x1b[2m${this.config.command}\x1b[0m\r\n` +
+      `\x1b[2m${RESTART_LINK}  ${STOP_LINK}\x1b[0m\r\n` +
       `\x1b[2m${"─".repeat(60)}\x1b[0m\r\n\r\n`,
       false  // header is decorative — don't write to log
     );
@@ -129,6 +131,11 @@ class AppPseudoTerminal implements vscode.Pseudoterminal {
       this._emit(`\r\n\x1b[2m■  ${reason}\x1b[0m\r\n`, false);
       if (code !== 0 && !signal) {
         this._emit(`\x1b[33mCheck the output above to diagnose the failure.\x1b[0m\r\n`, false);
+      }
+      // The tab survives a crash, so leave a way to relaunch without going back to the sidebar.
+      // On a deliberate stop the tab is about to close, so the link would only flash past.
+      if (!this._closedByUs) {
+        this._emit(`\x1b[2m${RESTART_LINK}\x1b[0m\r\n`, false);
       }
       this._logStream?.write(`[exit] ${reason}\n`);
       this._logStream?.end();
@@ -341,6 +348,15 @@ export class AppRunner implements vscode.Disposable {
   // @group Utilities : List an app's retained log files, newest first
   listLogFiles(appName: string): string[] {
     return this.logManager.listLogFiles(appName);
+  }
+
+  // @group Utilities : Find the app name that owns a given terminal, if any —
+  //                    used to scope terminal context-menu actions to Overture's own terminals
+  getAppNameForTerminal(terminal: vscode.Terminal): string | undefined {
+    for (const [name, entry] of this._apps) {
+      if (entry.terminal === terminal) { return name; }
+    }
+    return undefined;
   }
 
   getAllStates(): AppState[] {
