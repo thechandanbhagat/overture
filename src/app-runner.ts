@@ -145,7 +145,11 @@ class AppPseudoTerminal implements vscode.Pseudoterminal {
       // When the process exits naturally (crash / error), keep the tab open so
       // the user can read the full output before the terminal disappears.
       if (this._closedByUs) {
-        this._closeEmitter.fire(code ?? undefined);
+        // Fire a clean close (no code) rather than the process's real exit code —
+        // a force-kill (taskkill/SIGTERM) commonly yields a non-zero code, which
+        // VS Code's terminal.integrated.showExitAlert would otherwise surface as
+        // an "unexpected" termination even though this stop was intentional.
+        this._closeEmitter.fire(undefined);
       }
       this.on.exit(code);
     });
