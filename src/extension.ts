@@ -302,6 +302,11 @@ export function activate(context: vscode.ExtensionContext): void {
       await appRunner?.stopAll(activeNamespace);
     }),
 
+    vscode.commands.registerCommand("overture.restartAll", async () => {
+      if (!requireRoot()) { return; }
+      await appRunner?.restartAll(activeNamespace);
+    }),
+
     // @group BusinessLogic : Pick the namespace the sidebar is scoped to. The choice is per
     //                        workspace, so switching projects doesn't inherit an unrelated filter.
     vscode.commands.registerCommand("overture.selectNamespace", async () => {

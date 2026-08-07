@@ -434,6 +434,23 @@ export class AppRunner implements vscode.Disposable {
     await this.startApp(appName);
   }
 
+  // @group BusinessLogic : Restart exactly the apps that are running — unlike stopAll + startAll,
+  //                        this never starts an enabled app that the user had deliberately stopped.
+  async restartAll(namespace?: string): Promise<void> {
+    const running = Array.from(this._apps.values())
+      .filter((e) => e.status === "running" && (!namespace || namespaceOf(e.config) === namespace))
+      .map((e) => e.config.name);
+    if (running.length === 0) { return; }
+
+    for (const name of running) {
+      await this.stopApp(name);
+    }
+    await new Promise<void>((r) => setTimeout(r, 500));
+    for (const name of running) {
+      await this.startApp(name);
+    }
+  }
+
   showOutput(appName: string): void {
     const entry = this._apps.get(appName);
     if (!entry) { return; }
