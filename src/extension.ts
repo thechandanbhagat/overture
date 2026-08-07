@@ -130,6 +130,8 @@ export function activate(context: vscode.ExtensionContext): void {
       statusBar.text = `$(circle-filled) ${running}/${enabled} running`;
       statusBar.tooltip = `${running} of ${enabled} apps running`;
     }
+    // Drives which title-bar buttons are shown — Stop/Restart are noise when nothing is running
+    vscode.commands.executeCommand("setContext", "overture.anyRunning", running > 0);
   }
 
   // @group BusinessLogic : Boot or re-boot managers when a workspace is available

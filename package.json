@@ -209,28 +209,53 @@
         },
         {
           "command": "overture.stopAll",
-          "when": "view == overtureView",
+          "when": "view == overtureView && overture.anyRunning",
           "group": "navigation@2"
+        },
+        {
+          "command": "overture.restartAll",
+          "when": "view == overtureView && overture.anyRunning",
+          "group": "navigation@3"
+        },
+        {
+          "command": "overture.selectNamespace",
+          "when": "view == overtureView && overture.hasNamespaces",
+          "group": "navigation@4"
         },
         {
           "command": "overture.refresh",
           "when": "view == overtureView",
-          "group": "navigation@3"
+          "group": "1_run@1"
         },
         {
-          "command": "overture.openConfig",
-          "when": "view == overtureView",
-          "group": "navigation@4"
+          "command": "overture.selectNamespace",
+          "when": "view == overtureView && !overture.hasNamespaces",
+          "group": "1_run@2"
         },
         {
-          "command": "overture.scanProjects",
+          "command": "overture.toggleShowDisabledApps",
           "when": "view == overtureView",
-          "group": "navigation@5"
+          "group": "1_run@3"
         },
         {
           "command": "overture.createProfile",
           "when": "view == overtureView",
-          "group": "navigation@6"
+          "group": "2_edit@1"
+        },
+        {
+          "command": "overture.scanProjects",
+          "when": "view == overtureView",
+          "group": "2_edit@2"
+        },
+        {
+          "command": "overture.openSettings",
+          "when": "view == overtureView",
+          "group": "3_config@1"
+        },
+        {
+          "command": "overture.openConfig",
+          "when": "view == overtureView",
+          "group": "3_config@2"
         }
       ],
       "view/item/context": [
