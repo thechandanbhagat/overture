@@ -2,7 +2,9 @@ import * as vscode from "vscode";
 import * as fs from "fs";
 import * as path from "path";
 
-// @group Types : Shape of a discovered npm script
+// @group Types : Shape of a discovered package script
+export type PackageRunner = "npm" | "yarn";
+
 export interface DiscoveredScript {
   packageName: string;
   scriptName: string;
@@ -21,7 +23,7 @@ export const PRIMARY_SCRIPTS = new Set([
   "develop",
 ]);
 
-// @group BusinessLogic : Recursively find package.json files and extract their npm scripts
+// @group BusinessLogic : Recursively find package.json files and extract their package scripts
 export class ProjectScanner {
   constructor(private readonly workspaceRoot: string) {}
 
@@ -50,6 +52,7 @@ export class ProjectScanner {
         const pkg = JSON.parse(raw) as {
           name?: string;
           scripts?: Record<string, string>;
+          packageManager?: string;
         };
 
         const scripts = pkg.scripts;
@@ -58,6 +61,7 @@ export class ProjectScanner {
         }
 
         const folderPath = path.dirname(uri.fsPath);
+        const packageRunner = detectPackageRunner(folderPath, pkg);
         const rel = path.relative(this.workspaceRoot, folderPath);
         const relativePath = rel === "" ? "." : rel.replace(/\\/g, "/");
         const packageName =
@@ -68,7 +72,7 @@ export class ProjectScanner {
           results.push({
             packageName,
             scriptName,
-            command: `npm run ${scriptName}`,
+            command: buildScriptCommand(scriptName, packageRunner),
             relativePath,
             absolutePath: folderPath,
             isPrimary: PRIMARY_SCRIPTS.has(scriptName),
@@ -93,6 +97,31 @@ export class ProjectScanner {
 
     return results;
   }
+}
+
+// @group BusinessLogic : Choose the package runner for a project without modifying project files
+export function detectPackageRunner(
+  folderPath: string,
+  pkg: { packageManager?: string } = {}
+): PackageRunner {
+  const packageManager = pkg.packageManager?.trim().toLowerCase();
+  if (packageManager?.startsWith("yarn@") || packageManager === "yarn") {
+    return "yarn";
+  }
+  if (packageManager?.startsWith("npm@") || packageManager === "npm") {
+    return "npm";
+  }
+  if (packageManager) {
+    return "npm";
+  }
+  return fs.existsSync(path.join(folderPath, "yarn.lock")) ? "yarn" : "npm";
+}
+
+// @group BusinessLogic : Build the command Overture stores for discovered package scripts
+export function buildScriptCommand(scriptName: string, packageRunner: PackageRunner): string {
+  return packageRunner === "yarn"
+    ? `yarn ${scriptName}`
+    : `npm run ${scriptName}`;
 }
 
 // @group Utilities : Generate a stable, unique-enough app name from a discovered script

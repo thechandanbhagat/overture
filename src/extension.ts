@@ -146,7 +146,7 @@ export function activate(context: vscode.ExtensionContext): void {
     }
   }
 
-  // @group BusinessLogic : Scan workspace for Node.js projects
+  // @group BusinessLogic : Scan workspace for Node.js package scripts
   async function runScan(): Promise<void> {
     const root = requireRoot();
     if (!root) { return; }
@@ -180,7 +180,7 @@ export function activate(context: vscode.ExtensionContext): void {
 
     if (discovered.length === 0) {
       vscode.window.showInformationMessage(
-        "No Node.js projects with npm scripts found in this workspace."
+        "No Node.js projects with package scripts found in this workspace."
       );
       return;
     }
