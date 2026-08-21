@@ -4,6 +4,23 @@ All notable changes to Overture are documented here.
 
 ---
 
+## [1.4.0] — 2026-08-21
+
+### Added
+
+- **VS Code for the Web support** — Overture now declares `extensionKind: workspace`, so GitHub Codespaces and github.dev (when connected to a real backend) keep full functionality unchanged. A new browser-bundled entry point handles pure vscode.dev/github.dev with no connected backend: configured apps and profiles are browsable read-only, with a clear explanation of why start/stop actions aren't available there — spawning processes has no equivalent in a browser web-worker extension host.
+- **Quick links to `.env*` files and `package.json`** — surfaced directly under an app, alongside Path and Logs.
+
+### Fixed
+
+- **Git status could bleed across apps in a monorepo** — running `git status` from an app's subdirectory reported the whole repository's changes, so unrelated apps in the same repo showed identical git decorations. Status is now scoped to each app's own path.
+
+### Changed
+
+- **Flattened app node children** — the "Details" group (Command, PID, Logs) is gone; Logs now sits directly under the app alongside Path.
+
+---
+
 ## [1.3.0] — 2026-07-31
 
 ### Added

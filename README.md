@@ -17,9 +17,11 @@ Run and manage multiple app processes from a single VS Code sidebar panel — wi
 - **Namespaces** — group apps into namespaces and scope the sidebar, Start All, and Stop All to one of them
 - **First-run welcome panel** — guided empty-state panel with inline action buttons when no apps are configured yet
 - **File explorer in the sidebar** — expand an app's **Path** node to browse its folder tree and open files directly, no need to switch to the main Explorer view
-- **Log file browser** — expand **Details → Logs** to see every retained dated log file for an app and open it in one click
+- **Quick links to `.env*` and `package.json`** — surfaced right under the app, alongside Path and Logs
+- **Log file browser** — expand an app's **Logs** node to see every retained dated log file and open it in one click
 - **Hide/show disabled apps** — declutter the sidebar with a title-bar toggle or the `overture.showDisabledApps` setting
 - **Settings panel** — a form-based UI (`Overture: Open Settings`) for editing retention days, apps, and profiles without hand-editing JSON
+- **VS Code for the Web** — full functionality in GitHub Codespaces and github.dev; browses your configured apps and profiles read-only in pure vscode.dev/github.dev with no connected backend, since spawning processes has no equivalent there
 
 ---
 
@@ -146,12 +148,13 @@ Apps whose repository has uncommitted work are colored using the same theme colo
 
 Counts refresh when you save a file in the app's folder, when config reloads, and when an app starts. Changes made outside the editor (a commit or checkout in a terminal) are picked up on the next refresh. This honors the `explorer.decorations.colors` and `explorer.decorations.badges` settings.
 
-### Details, Path, and Logs
+### .env files, package.json, Path, and Logs
 
-Each app expands into two collapsible nodes:
+Each app expands directly into:
 
-- **Details** — Command, PID, and a **Logs** list of every retained dated log file for that app (click one to open it in the editor)
+- Any **`.env*` files** and **`package.json`** in the app's folder, one click away
 - **Path** — a live file explorer rooted at the app's folder; expand into subfolders and click any file to open it. Right-click **Path**, a folder, or a file for **Reveal in File Explorer**.
+- **Logs** — every retained dated log file for that app (click one to open it in the editor)
 
 ---
 
