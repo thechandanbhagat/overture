@@ -49,14 +49,32 @@ export function parseGitStatus(output: string): GitStatus {
 //                    here previously froze the whole extension for seconds at a time.
 export function getGitStatus(dirPath: string): Promise<GitStatus | undefined> {
   return new Promise((resolve) => {
+    // In a monorepo, running `git status` from an app subdir still reports changes from the
+    // whole repository. Resolve the worktree root first, then limit the status to the app path.
     child_process.execFile(
       'git',
-      ['status', '--porcelain=v1', '--branch'],
-      // A repo mid-rebase or with a huge untracked tree can outgrow the 1 MB default buffer,
-      // which would surface as an error and silently drop the decoration.
-      { cwd: dirPath, timeout: 3000, maxBuffer: 8 * 1024 * 1024, windowsHide: true },
-      (err, stdout) => {
-        resolve(err ? undefined : parseGitStatus(stdout));
+      ['rev-parse', '--show-toplevel'],
+      { cwd: dirPath, timeout: 3000, maxBuffer: 1 * 1024 * 1024, windowsHide: true },
+      (err, topLevel) => {
+        if (err) { resolve(undefined); return; }
+
+        const repoRoot = path.normalize(topLevel.trim());
+        const rel = path.relative(repoRoot, dirPath).replace(/\\/g, '/');
+        const args = ['status', '--porcelain=v1', '--branch'];
+        if (rel && !rel.startsWith('..') && !path.isAbsolute(rel)) {
+          args.push('--', rel);
+        }
+
+        child_process.execFile(
+          'git',
+          args,
+          // A repo mid-rebase or with a huge untracked tree can outgrow the 1 MB default buffer,
+          // which would surface as an error and silently drop the decoration.
+          { cwd: repoRoot, timeout: 3000, maxBuffer: 8 * 1024 * 1024, windowsHide: true },
+          (err2, stdout) => {
+            resolve(err2 ? undefined : parseGitStatus(stdout));
+          }
+        );
       }
     );
   });
