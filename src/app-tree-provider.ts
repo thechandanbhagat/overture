@@ -133,9 +133,7 @@ export class AppTreeItem extends vscode.TreeItem {
     const branch = gitBranch ? `  ⎏ ${gitBranch}` : "";
     switch (status) {
       case "running":
-        return pid
-          ? `${resumed ? "↩ resumed" : "running"}  (pid ${pid})${branch}`
-          : `running${branch}`;
+        return `${resumed ? "↩ resumed" : "running"}${branch}`;
       case "error":    return `exited with error${branch}`;
       case "disabled": return "disabled";
       case "archived": return "archived";
@@ -163,20 +161,7 @@ export class AppDetailItem extends vscode.TreeItem {
   }
 }
 
-// @group Types : Collapsible "Details" group node (child of AppTreeItem) — Command, PID, Logs
-export class AppDetailsGroupItem extends vscode.TreeItem {
-  constructor(
-    public readonly appName: string,
-    public readonly appCommand: string,
-    public readonly appPid?: number
-  ) {
-    super("Details", vscode.TreeItemCollapsibleState.Collapsed);
-    this.iconPath = new vscode.ThemeIcon("list-unordered");
-    this.contextValue = "app-details-group";
-  }
-}
-
-// @group Types : Collapsible "Logs" group node (child of AppDetailsGroupItem)
+// @group Types : Collapsible "Logs" group node (child of AppTreeItem)
 export class AppLogsGroupItem extends vscode.TreeItem {
   constructor(public readonly appName: string) {
     super("Logs", vscode.TreeItemCollapsibleState.Collapsed);
@@ -236,7 +221,6 @@ export type RunAppsTreeNode =
   | ProfileItem
   | AppTreeItem
   | AppDetailItem
-  | AppDetailsGroupItem
   | AppLogsGroupItem
   | AppLogFileItem
   | ProfileAppItem
@@ -300,9 +284,6 @@ export class AppTreeProvider
         );
       });
     }
-    if (element instanceof AppDetailsGroupItem) {
-      return this._childrenForDetailsGroup(element);
-    }
     if (element instanceof AppLogsGroupItem) {
       return this.runner.listLogFiles(element.appName).map((f) => new AppLogFileItem(f));
     }
@@ -313,16 +294,6 @@ export class AppTreeProvider
       return this._readDir(element.fsPath);
     }
     return [];
-  }
-
-  // @group BusinessLogic : Build children of the "Details" group — Command, PID, Logs
-  private _childrenForDetailsGroup(group: AppDetailsGroupItem): RunAppsTreeNode[] {
-    const items: RunAppsTreeNode[] = [new AppDetailItem("Command", group.appCommand, "terminal")];
-    if (group.appPid) {
-      items.push(new AppDetailItem("PID", String(group.appPid), "info"));
-    }
-    items.push(new AppLogsGroupItem(group.appName));
-    return items;
   }
 
   // @group BusinessLogic : List a directory's entries as file explorer nodes (folders first, then files, alphabetical)
@@ -461,12 +432,30 @@ export class AppTreeProvider
     return [];
   }
 
-  // @group BusinessLogic : Build top-level sub-items for an app node — "Details" (Command, PID, Logs)
-  //                        and "Path" (file explorer), both collapsible so they line up visually.
+  // @group BusinessLogic : Build top-level sub-items for an app node — ".env*" files and
+  //                        package.json, then "Path" and "Logs", in that order.
   private _childrenForApp(app: AppTreeItem): RunAppsTreeNode[] {
+    const basePath = this.runner.resolveAppPath(app.appPath);
+    const envItems: AppFileItem[] = [];
+    try {
+      for (const entry of fs.readdirSync(basePath, { withFileTypes: true })) {
+        if (entry.isFile() && entry.name.startsWith('.env')) {
+          envItems.push(new AppFileItem(path.join(basePath, entry.name), false));
+        }
+      }
+      envItems.sort((a, b) => path.basename(a.fsPath).localeCompare(path.basename(b.fsPath)));
+    } catch { /* base path may not exist or be unreadable */ }
+
+    const packageJson = path.join(basePath, 'package.json');
+    const packageItems: AppFileItem[] = fs.existsSync(packageJson)
+      ? [new AppFileItem(packageJson, false)]
+      : [];
+
     return [
-      new AppDetailsGroupItem(app.appName, app.appCommand, app.appPid),
-      new AppDetailItem("Path", app.appPath, "folder", this.runner.resolveAppPath(app.appPath)),
+      ...envItems,
+      ...packageItems,
+      new AppDetailItem("Path", app.appPath, "folder", basePath),
+      new AppLogsGroupItem(app.appName),
     ];
   }
 
