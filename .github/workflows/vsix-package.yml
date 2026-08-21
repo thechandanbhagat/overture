@@ -30,6 +30,9 @@ jobs:
       - name: Compile extension
         run: npm run compile
 
+      - name: Compile web extension
+        run: npm run compile:web:prod
+
       - name: Package VSIX
         run: npm run package
 
