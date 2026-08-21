@@ -367,7 +367,9 @@
   "scripts": {
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
-    "package": "vsce package --no-dependencies"
+    "package": "vsce package --no-dependencies",
+    "pretest": "npm run compile",
+    "test": "node tests/run-unit-tests.js"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
