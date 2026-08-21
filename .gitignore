@@ -136,3 +136,8 @@ excluded
 # Run Multiple Apps runtime state
 .overture/.state.json
 .overture/logs/
+.github/*
+!.github/workflows
+
+.groupcode
+.claude
