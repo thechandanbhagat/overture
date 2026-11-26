@@ -96,6 +96,7 @@ export class SettingsPanel implements vscode.Disposable {
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'nonce-${nonce}';">
 <title>Overture Settings</title>
 <style>
@@ -103,16 +104,25 @@ export class SettingsPanel implements vscode.Disposable {
     font-family: var(--vscode-font-family);
     font-size: var(--vscode-font-size);
     color: var(--vscode-foreground);
-    padding: 0 20px 40px;
+    --line: var(--vscode-panel-border, color-mix(in srgb, var(--vscode-foreground) 18%, transparent));
+    max-width: 1120px; margin: 0 auto; padding: 0 20px 32px;
+    background: var(--vscode-editor-background);
   }
-  h2 { margin-top: 28px; margin-bottom: 8px; }
+  h1 { font-size: 16px; margin: 0 auto 0 0; }
+  h2 { font-size: 14px; margin: 0; }
+  h3 { margin: 0 0 6px; font-size: inherit; font-weight: 600; color: var(--vscode-descriptionForeground); }
+  section { margin-top: 20px; }
+  .section-heading, .retention {
+    display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  }
+  .retention { justify-content: flex-start; }
+  #retentionDays { width: 68px; }
   .toolbar {
     position: sticky; top: 0; z-index: 10;
-    display: flex; align-items: center; gap: 8px;
-    padding: 12px 0; background: var(--vscode-editor-background);
-    border-bottom: 1px solid var(--vscode-panel-border);
+    display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+    padding: 10px 0; background: var(--vscode-editor-background);
+    border-bottom: 1px solid var(--line);
   }
-  .toolbar .spacer { flex: 1; }
   button {
     font-family: inherit; font-size: inherit;
     background: var(--vscode-button-background);
@@ -125,26 +135,67 @@ export class SettingsPanel implements vscode.Disposable {
     color: var(--vscode-button-secondaryForeground);
   }
   button.secondary:hover { background: var(--vscode-button-secondaryHoverBackground); }
-  button.icon { padding: 3px 8px; }
+  button.icon { padding: 0; width: 26px; height: 26px; flex: none; background: transparent; color: inherit; }
+  button.icon:hover:not(:disabled) { background: var(--vscode-toolbar-hoverBackground); }
+  button:disabled { opacity: 0.45; cursor: default; }
+  :focus-visible { outline: 1px solid var(--vscode-focusBorder); outline-offset: 2px; }
   input[type="text"], input[type="number"] {
     background: var(--vscode-input-background);
     color: var(--vscode-input-foreground);
     border: 1px solid var(--vscode-input-border, transparent);
-    border-radius: 2px; padding: 4px 6px; font-family: inherit; font-size: inherit;
+    border-radius: 2px; padding: 4px 6px; font: inherit; box-sizing: border-box;
   }
-  table { border-collapse: collapse; width: 100%; margin-top: 8px; }
-  th { text-align: left; font-weight: 600; padding: 4px 6px; font-size: 0.9em; opacity: 0.8; }
-  td { padding: 4px 6px; vertical-align: middle; }
-  td input[type="text"] { width: 100%; box-sizing: border-box; }
-  .profile-card {
-    border: 1px solid var(--vscode-panel-border);
-    border-radius: 4px; padding: 12px; margin-top: 10px;
+  .table-scroll { margin-top: 8px; overflow-x: auto; border-block: 1px solid var(--line); }
+  table { width: 100%; min-width: 610px; border-collapse: collapse; table-layout: fixed; }
+  .name-col { width: 18%; }
+  .path-col { width: 25%; }
+  .namespace-col { width: 15%; }
+  .flag-col { width: 76px; }
+  .remove-col { width: 38px; }
+  th, td { padding: 5px 6px; text-align: left; }
+  th { height: 24px; font-weight: 600; color: var(--vscode-descriptionForeground); background: var(--vscode-sideBar-background); }
+  tbody tr { border-top: 1px solid var(--line); }
+  tbody tr:hover, tbody tr:focus-within { background: var(--vscode-list-hoverBackground); }
+  td input[type="text"] { width: 100%; min-width: 0; }
+  td:nth-child(n+5), th:nth-child(n+5) { text-align: center; }
+  .choice { position: relative; display: inline-flex; max-width: 100%; vertical-align: middle; cursor: pointer; }
+  .choice input {
+    position: absolute; width: 1px; height: 1px; padding: 0; margin: 0; overflow: hidden;
+    clip-path: inset(50%);
   }
-  .profile-card .row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
-  .profile-card .row input[type="text"] { flex: 1; }
-  .app-checklist { display: flex; flex-wrap: wrap; gap: 4px 14px; }
-  .app-checklist label { display: flex; align-items: center; gap: 4px; font-size: 0.95em; }
-  .muted { opacity: 0.7; font-size: 0.9em; }
+  .choice span {
+    min-width: 0; padding: 3px 5px; border: 1px solid transparent; border-radius: 3px;
+    color: var(--vscode-descriptionForeground); overflow-wrap: anywhere;
+  }
+  .choice:hover span { background: var(--vscode-toolbar-hoverBackground); }
+  .choice input:checked + span {
+    border-color: var(--vscode-inputOption-activeBorder, transparent);
+    background: var(--vscode-inputOption-activeBackground, var(--vscode-button-background));
+    color: var(--vscode-inputOption-activeForeground, var(--vscode-button-foreground));
+  }
+  .choice input:focus-visible + span { outline: 1px solid var(--vscode-focusBorder); outline-offset: 2px; }
+  @media (forced-colors: active) {
+    .choice input:checked + span { forced-color-adjust: none; border-color: Highlight; background: Highlight; color: HighlightText; }
+    .choice input:focus-visible + span { outline-color: Highlight; }
+  }
+  .profile { display: grid; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+  #profilesContainer { margin-top: 8px; border-top: 1px solid var(--line); }
+  .profile-members { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; }
+  .app-checklist { display: flex; flex-wrap: wrap; gap: 6px 14px; }
+  .profile-heading input[type="text"] { flex: 0 1 20rem; min-width: 0; }
+  .actions, .member-row { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+  .actions .icon { margin-left: auto; }
+  .member-row span { flex: 1 1 6em; min-width: 0; overflow-wrap: anywhere; }
+  .launch-order { margin: 0; padding-inline-start: 22px; }
+  .launch-order li { padding-inline-start: 3px; }
+  .launch-order li + li { border-top: 1px solid var(--line); }
+  .muted { color: var(--vscode-descriptionForeground); }
+  .empty { margin: 0; padding: 8px 6px; }
+  [hidden] { display: none !important; }
+  @media (max-width: 600px) {
+    body { padding-inline: 12px; }
+    .profile-members { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+  }
   .banner {
     display: none; padding: 8px 12px; border-radius: 4px; margin: 10px 0;
     background: var(--vscode-inputValidation-warningBackground);
@@ -160,33 +211,35 @@ export class SettingsPanel implements vscode.Disposable {
 </head>
 <body>
   <div class="toolbar">
-    <button id="saveBtn">Save</button>
+    <h1>Overture Settings</h1>
+    <span id="savedIndicator" class="muted" role="status"></span>
     <button id="openConfigBtn" class="secondary">Open config.json</button>
-    <span id="savedIndicator" class="muted"></span>
-    <div class="spacer"></div>
+    <button id="saveBtn">Save</button>
   </div>
 
   <div id="staleBanner" class="banner">
     config.json changed on disk.
-    <button id="reloadBtn" class="icon">Reload</button>
+    <button id="reloadBtn" class="secondary">Reload</button>
   </div>
   <div id="errorBanner" class="banner error"></div>
 
-  <h2>General</h2>
-  <label>Log retention (days): <input id="retentionDays" type="number" min="1" step="1" style="width:70px"></label>
-
-  <h2>Apps</h2>
-  <table id="appsTable">
-    <thead>
-      <tr><th>Name</th><th>Path</th><th>Command</th><th>Namespace</th><th>Enabled</th><th>Archived</th><th></th></tr>
-    </thead>
-    <tbody id="appsBody"></tbody>
-  </table>
-  <button id="addAppBtn" class="secondary">+ Add App</button>
-
-  <h2>Profiles</h2>
-  <div id="profilesContainer"></div>
-  <button id="addProfileBtn" class="secondary">+ Add Profile</button>
+  <main>
+    <section><label class="retention">Log retention (days) <input id="retentionDays" type="number" min="1" step="1"></label></section>
+    <section aria-labelledby="appsHeading">
+      <div class="section-heading"><h2 id="appsHeading">Apps</h2><button id="addAppBtn" class="secondary">+ Add App</button></div>
+      <div class="table-scroll" role="region" aria-label="App settings table" tabindex="0">
+        <table aria-labelledby="appsHeading">
+          <colgroup><col class="name-col"><col class="path-col"><col><col class="namespace-col"><col class="flag-col" span="2"><col class="remove-col"></colgroup>
+          <thead><tr><th scope="col">Name</th><th scope="col">Path</th><th scope="col">Command</th><th scope="col">Namespace</th><th scope="col">Enabled</th><th scope="col">Archived</th><th scope="col" aria-label="Actions"></th></tr></thead>
+          <tbody id="appsBody"></tbody>
+        </table>
+      </div>
+    </section>
+    <section aria-labelledby="profilesHeading">
+      <div class="section-heading"><h2 id="profilesHeading">Profiles</h2><button id="addProfileBtn" class="secondary">+ Add Profile</button></div>
+      <div id="profilesContainer"></div>
+    </section>
+  </main>
 
 <script nonce="${nonce}">
 (function () {
@@ -203,139 +256,196 @@ export class SettingsPanel implements vscode.Disposable {
     el("savedIndicator").textContent = "";
   }
 
-  function render() {
+  function render(focusEntry) {
     el("retentionDays").value = String(state.retentionDays);
+    const refreshChecklists = [];
 
     const body = el("appsBody");
     body.textContent = "";
-    state.apps.forEach((app, i) => {
-      const tr = document.createElement("tr");
-
-      tr.appendChild(textCell(app.name, (v) => { app.name = v; markDirty(); }));
-      tr.appendChild(textCell(app.path, (v) => { app.path = v; markDirty(); }));
-      tr.appendChild(textCell(app.command, (v) => { app.command = v; markDirty(); }));
-      tr.appendChild(textCell(app.namespace || "", (v) => { app.namespace = v; markDirty(); }, "default"));
-      tr.appendChild(checkboxCell(app.enabled, (v) => { app.enabled = v; markDirty(); }));
-      tr.appendChild(checkboxCell(app.archived, (v) => { app.archived = v; markDirty(); }));
-
-      const removeTd = document.createElement("td");
-      const removeBtn = document.createElement("button");
-      removeBtn.className = "icon secondary";
-      removeBtn.textContent = "✕";
-      removeBtn.title = "Remove app";
-      removeBtn.addEventListener("click", () => {
-        state.apps.splice(i, 1);
+    if (!state.apps.length) {
+      const row = document.createElement("tr");
+      const cell = tableCell(empty("No apps"));
+      cell.colSpan = 7;
+      row.appendChild(cell);
+      body.appendChild(row);
+    }
+    state.apps.forEach((app, index) => {
+      const row = document.createElement("tr");
+      const name = textField("Name", app.name, (value) => {
+        app.name = value;
+        refreshChecklists.forEach((refresh) => refresh());
+        markDirty();
+      });
+      const remove = iconButton("\u00d7", "Remove app", () => {
+        state.apps.splice(index, 1);
         markDirty();
         render();
+        el("addAppBtn").focus();
       });
-      removeTd.appendChild(removeBtn);
-      tr.appendChild(removeTd);
-
-      body.appendChild(tr);
+      const cells = [
+        name,
+        textField("Path", app.path, (value) => { app.path = value; markDirty(); }),
+        textField("Command", app.command, (value) => { app.command = value; markDirty(); }),
+        textField("Namespace", app.namespace || "", (value) => { app.namespace = value; markDirty(); }, "default"),
+        checkbox("Enabled", app.enabled, (value) => { app.enabled = value; markDirty(); }),
+        checkbox("Archived", app.archived, (value) => { app.archived = value; markDirty(); }),
+        remove,
+      ];
+      row.append(...cells.map(tableCell));
+      body.appendChild(row);
+      if (focusEntry === app) { name.focus(); }
     });
 
     const profilesContainer = el("profilesContainer");
     profilesContainer.textContent = "";
-    const allAppNames = state.apps.map((a) => a.name).filter(Boolean);
+    if (!Object.keys(state.profiles).length) { profilesContainer.appendChild(empty("No profiles")); }
 
     Object.entries(state.profiles).forEach(([profileName, profile]) => {
-      const card = document.createElement("div");
-      card.className = "profile-card";
-
-      const row = document.createElement("div");
-      row.className = "row";
-
-      const nameInput = document.createElement("input");
-      nameInput.type = "text";
-      nameInput.value = profileName;
-      nameInput.addEventListener("change", () => {
-        const newName = nameInput.value.trim();
-        if (!newName || newName === profileName) { render(); return; }
-        const reordered = {};
-        for (const [k, v] of Object.entries(state.profiles)) {
-          reordered[k === profileName ? newName : k] = v;
+      let currentName = profileName;
+      const item = document.createElement("div");
+      item.className = "profile";
+      const launchOrder = document.createElement("ol");
+      launchOrder.className = "launch-order";
+      launchOrder.setAttribute("aria-label", "Launch order");
+      const name = textField("Profile name", currentName, (value) => {
+        const nextName = value.trim();
+        if (!nextName || (nextName !== currentName && Object.hasOwn(state.profiles, nextName))) {
+          name.value = currentName;
+          return;
         }
-        state.profiles = reordered;
+        if (nextName === currentName) { return; }
+        state.profiles = Object.fromEntries(Object.entries(state.profiles).map(([key, value]) =>
+          [key === currentName ? nextName : key, value]
+        ));
+        currentName = nextName;
+        name.value = currentName;
+        markDirty();
+      }, "", "change");
+      const actions = document.createElement("div");
+      actions.className = "actions profile-heading";
+      actions.appendChild(name);
+      actions.appendChild(checkbox("Favorite", profile.favorite, (value) => { profile.favorite = value; markDirty(); }));
+      actions.appendChild(iconButton("\u00d7", "Delete profile", () => {
+        delete state.profiles[currentName];
         markDirty();
         render();
-      });
-      row.appendChild(nameInput);
-
-      const favLabel = document.createElement("label");
-      const favCheckbox = document.createElement("input");
-      favCheckbox.type = "checkbox";
-      favCheckbox.checked = !!profile.favorite;
-      favCheckbox.addEventListener("change", () => {
-        profile.favorite = favCheckbox.checked;
-        markDirty();
-      });
-      favLabel.appendChild(favCheckbox);
-      favLabel.appendChild(document.createTextNode(" Favorite"));
-      row.appendChild(favLabel);
-
-      const removeBtn = document.createElement("button");
-      removeBtn.className = "icon secondary";
-      removeBtn.textContent = "✕";
-      removeBtn.title = "Delete profile";
-      removeBtn.addEventListener("click", () => {
-        delete state.profiles[profileName];
-        markDirty();
-        render();
-      });
-      row.appendChild(removeBtn);
-
-      card.appendChild(row);
+        el("addProfileBtn").focus();
+      }));
 
       const checklist = document.createElement("div");
       checklist.className = "app-checklist";
-      if (allAppNames.length === 0) {
-        const none = document.createElement("span");
-        none.className = "muted";
-        none.textContent = "No apps defined yet.";
-        checklist.appendChild(none);
-      }
-      allAppNames.forEach((appName) => {
-        const label = document.createElement("label");
-        const cb = document.createElement("input");
-        cb.type = "checkbox";
-        cb.checked = profile.apps.includes(appName);
-        cb.addEventListener("change", () => {
-          if (cb.checked) {
-            if (!profile.apps.includes(appName)) { profile.apps.push(appName); }
-          } else {
-            profile.apps = profile.apps.filter((n) => n !== appName);
-          }
-          markDirty();
-        });
-        label.appendChild(cb);
-        label.appendChild(document.createTextNode(" " + appName));
-        checklist.appendChild(label);
-      });
-      card.appendChild(checklist);
 
-      profilesContainer.appendChild(card);
+      function refreshChecklist() {
+        const names = new Set([...state.apps.map((app) => app.name).filter(Boolean), ...profile.apps]);
+        checklist.textContent = "";
+        if (!names.size) { checklist.appendChild(empty("No apps")); }
+        names.forEach((appName) => {
+          checklist.appendChild(checkbox(appName, profile.apps.includes(appName), (checked) => {
+            if (checked) { profile.apps.push(appName); }
+            else { profile.apps = profile.apps.filter((name) => name !== appName); }
+            markDirty();
+            renderMembers();
+          }));
+        });
+      }
+      refreshChecklists.push(refreshChecklist);
+
+      function renderMembers(focusIndex, focusButton) {
+        launchOrder.textContent = "";
+        launchOrder.hidden = !profile.apps.length;
+        orderEmpty.hidden = !!profile.apps.length;
+        profile.apps.forEach((appName, index) => {
+          const li = document.createElement("li");
+          const row = document.createElement("div");
+          row.className = "member-row";
+          const label = document.createElement("span");
+          label.textContent = appName;
+          row.appendChild(label);
+          const buttons = [-1, 1].map((offset) => {
+            const target = index + offset;
+            const up = offset < 0;
+            const button = iconButton(up ? "\u2191" : "\u2193", "Move " + appName + (up ? " up" : " down"), () => {
+              [profile.apps[index], profile.apps[target]] = [profile.apps[target], profile.apps[index]];
+              markDirty();
+              renderMembers(target, up ? 0 : 1);
+            });
+            button.disabled = target < 0 || target >= profile.apps.length;
+            return button;
+          });
+          row.append(...buttons);
+          li.appendChild(row);
+          launchOrder.appendChild(li);
+          if (index === focusIndex) {
+            const preferred = buttons[focusButton];
+            (preferred.disabled ? buttons.find((button) => !button.disabled) : preferred)?.focus();
+          }
+        });
+      }
+
+      const orderEmpty = empty("No apps selected");
+      const members = document.createElement("div");
+      members.className = "profile-members";
+      members.append(labeledGroup("Apps", checklist), labeledGroup("Launch order", launchOrder, orderEmpty));
+      item.append(actions, members);
+      profilesContainer.appendChild(item);
+      refreshChecklist();
+      renderMembers();
+      if (focusEntry === profile) { name.focus(); name.select(); }
     });
   }
 
-  function textCell(value, onChange, placeholder) {
-    const td = document.createElement("td");
+  function labeledGroup(title, ...children) {
+    const group = document.createElement("div");
+    const heading = document.createElement("h3");
+    heading.textContent = title;
+    group.append(heading, ...children);
+    return group;
+  }
+
+  function tableCell(content) {
+    const cell = document.createElement("td");
+    cell.appendChild(content);
+    return cell;
+  }
+
+  function empty(text) {
+    const message = document.createElement("p");
+    message.className = "empty muted";
+    message.textContent = text;
+    return message;
+  }
+
+  function iconButton(icon, title, action) {
+    const button = document.createElement("button");
+    button.className = "icon";
+    button.textContent = icon;
+    button.title = title;
+    button.setAttribute("aria-label", title);
+    button.addEventListener("click", action);
+    return button;
+  }
+
+  function textField(text, value, onChange, placeholder, eventName = "input") {
     const input = document.createElement("input");
     input.type = "text";
     input.value = value;
+    input.setAttribute("aria-label", text);
     if (placeholder) { input.placeholder = placeholder; }
-    input.addEventListener("input", () => onChange(input.value));
-    td.appendChild(input);
-    return td;
+    input.addEventListener(eventName, () => onChange(input.value));
+    return input;
   }
 
-  function checkboxCell(value, onChange) {
-    const td = document.createElement("td");
+  function checkbox(text, value, onChange) {
+    const label = document.createElement("label");
+    label.className = "choice";
     const input = document.createElement("input");
     input.type = "checkbox";
     input.checked = !!value;
     input.addEventListener("change", () => onChange(input.checked));
-    td.appendChild(input);
-    return td;
+    const caption = document.createElement("span");
+    caption.textContent = text;
+    label.append(input, caption);
+    return label;
   }
 
   el("retentionDays").addEventListener("input", () => {
@@ -344,9 +454,10 @@ export class SettingsPanel implements vscode.Disposable {
   });
 
   el("addAppBtn").addEventListener("click", () => {
-    state.apps.push({ name: "", path: "./", command: "npm run dev", namespace: "", enabled: true, archived: false });
+    const app = { name: "", path: "./", command: "npm run dev", namespace: "", enabled: true, archived: false };
+    state.apps.push(app);
     markDirty();
-    render();
+    render(app);
   });
 
   el("addProfileBtn").addEventListener("click", () => {
@@ -354,9 +465,10 @@ export class SettingsPanel implements vscode.Disposable {
     let name = base;
     let n = 1;
     while (state.profiles[name]) { name = base + "-" + (++n); }
-    state.profiles[name] = { apps: [], favorite: false };
+    const profile = { apps: [], favorite: false };
+    state.profiles[name] = profile;
     markDirty();
-    render();
+    render(profile);
   });
 
   el("saveBtn").addEventListener("click", () => {
