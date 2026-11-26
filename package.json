@@ -2,7 +2,7 @@
   "name": "overture",
   "displayName": "Overture",
   "description": "Orchestrate multiple app processes from a VS Code sidebar — terminals, profiles, logs, and auto-discovery.",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "publisher": "thechandanbhagat",
   "repository": {
     "type": "git",
@@ -117,31 +117,31 @@
       {
         "command": "overture.startApp",
         "title": "Start App",
-        "icon": "$(play)",
+        "icon": { "light": "resources/actions/light/play.svg", "dark": "resources/actions/dark/play.svg" },
         "category": "Overture"
       },
       {
         "command": "overture.stopApp",
         "title": "Stop App",
-        "icon": "$(debug-stop)",
+        "icon": { "light": "resources/actions/light/stop.svg", "dark": "resources/actions/dark/stop.svg" },
         "category": "Overture"
       },
       {
         "command": "overture.restartApp",
         "title": "Restart App",
-        "icon": "$(debug-restart)",
+        "icon": { "light": "resources/actions/light/restart.svg", "dark": "resources/actions/dark/restart.svg" },
         "category": "Overture"
       },
       {
         "command": "overture.toggleEnable",
         "title": "Toggle Enable/Disable",
-        "icon": "$(circle-slash)",
+        "icon": { "light": "resources/actions/light/disable.svg", "dark": "resources/actions/dark/disable.svg" },
         "category": "Overture"
       },
       {
         "command": "overture.showOutput",
         "title": "Show Output",
-        "icon": "$(output)",
+        "icon": { "light": "resources/actions/light/output.svg", "dark": "resources/actions/dark/output.svg" },
         "category": "Overture"
       },
       {
@@ -183,7 +183,7 @@
       {
         "command": "overture.toggleArchive",
         "title": "Archive / Unarchive App",
-        "icon": "$(archive)",
+        "icon": { "light": "resources/actions/light/archive.svg", "dark": "resources/actions/dark/archive.svg" },
         "category": "Overture"
       },
       {

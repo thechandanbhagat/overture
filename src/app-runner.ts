@@ -103,6 +103,11 @@ class AppPseudoTerminal implements vscode.Pseudoterminal {
   private _proc: child_process.ChildProcess | undefined;
   private _logStream: fs.WriteStream | undefined;
   private _closedByUs = false;
+  private _resolveClosed!: () => void;
+  private readonly _closed = new Promise<void>((resolve) => { this._resolveClosed = resolve; });
+  private _didClose = false;
+  private _forceKillTimer?: NodeJS.Timeout;
+  private _closeTimer?: NodeJS.Timeout;
 
   constructor(
     private readonly config: AppConfig,
@@ -117,6 +122,7 @@ class AppPseudoTerminal implements vscode.Pseudoterminal {
 
   // @group BusinessLogic : Called by VS Code when the terminal tab becomes visible
   open(): void {
+    if (this._closedByUs) { return; }
     this._logStream = this.logManager.openLogStream(this.config.name);
     this._emit(
       `\x1b[1;36m▶  ${this.config.name}\x1b[0m\r\n` +
@@ -144,7 +150,8 @@ class AppPseudoTerminal implements vscode.Pseudoterminal {
       this._emit(data.toString());
     });
 
-    this._proc.on("exit", (code, signal) => {
+    this._proc.on("close", (code, signal) => {
+      if (!this._proc) { return; }
       const reason = signal ? `killed by signal ${signal}` : `exited with code ${code}`;
       this._emit(`\r\n\x1b[2m■  ${reason}\x1b[0m\r\n`, false);
       if (code !== 0 && !signal) {
@@ -167,25 +174,26 @@ class AppPseudoTerminal implements vscode.Pseudoterminal {
         // a force-kill (taskkill/SIGTERM) commonly yields a non-zero code, which
         // VS Code's terminal.integrated.showExitAlert would otherwise surface as
         // an "unexpected" termination even though this stop was intentional.
-        this._closeEmitter.fire(undefined);
+        this._finishClose();
       }
       this.on.exit(code);
     });
 
     this._proc.on("error", (err) => {
       this._emit(`\r\n\x1b[31mError: ${err.message}\x1b[0m\r\n`);
+      if (!this._proc?.pid) {
+        this._proc = undefined;
+        this._logStream?.end();
+        this._logStream = undefined;
+        if (this._closedByUs) { this._finishClose(); }
+      }
       this.on.error(err.message);
     });
   }
 
   // @group BusinessLogic : Called by VS Code when user closes the terminal tab
   close(): void {
-    this._closedByUs = true;
-    if (this._proc) {
-      this._kill(); // exit handler will fire _closeEmitter
-    } else {
-      this._closeEmitter.fire(undefined); // process already gone, close tab now
-    }
+    void this.kill();
   }
 
   // @group BusinessLogic : Forward keystrokes into the process stdin (interactive support)
@@ -194,32 +202,45 @@ class AppPseudoTerminal implements vscode.Pseudoterminal {
   }
 
   // @group BusinessLogic : Kill the process externally (stop button)
-  kill(): void {
+  kill(): Promise<void> {
+    if (this._closedByUs) { return this._closed; }
     this._closedByUs = true;
     if (this._proc) {
-      this._kill(); // exit handler will fire _closeEmitter
+      this._closeTimer = setTimeout(() => this._finishClose(), 2000);
+      if (process.platform !== "win32") {
+        this._forceKillTimer = setTimeout(() => this._kill("SIGKILL"), 750);
+      }
+      this._kill();
     } else {
-      this._closeEmitter.fire(undefined); // process already gone, close tab now
+      this._finishClose();
     }
+    return this._closed;
   }
 
-  private _kill(): void {
-    if (this._proc && !this._proc.killed) {
+  private _finishClose(): void {
+    if (this._didClose) { return; }
+    this._didClose = true;
+    clearTimeout(this._forceKillTimer);
+    clearTimeout(this._closeTimer);
+    this._closeEmitter.fire(undefined);
+    this._resolveClosed();
+  }
+
+  private _kill(signal: NodeJS.Signals = "SIGTERM"): void {
+    if (this._proc) {
       const pid = this._proc.pid;
       if (pid) {
         if (process.platform === "win32") {
           // /T kills the entire process tree, /F forces termination
-          try {
-            child_process.execSync(`taskkill /F /PID ${pid} /T`, { stdio: "ignore" });
-          } catch { /* process may have already exited */ }
+          child_process.execFile("taskkill", ["/F", "/PID", String(pid), "/T"], { timeout: 1500 }, () => {});
         } else {
           // Kill the entire process group to avoid orphaned children
           try {
-            process.kill(-pid, "SIGTERM");
+            process.kill(-pid, signal);
           } catch { /* group may have already exited */ }
         }
       } else {
-        this._proc.kill("SIGTERM");
+        this._proc.kill(signal);
       }
     }
   }
@@ -261,6 +282,8 @@ export class AppRunner implements vscode.Disposable {
   private _apps = new Map<string, AppEntry>();
   private _gitTimers = new Map<string, NodeJS.Timeout>();
   private _onDidChangeState = new vscode.EventEmitter<void>();
+  private _pendingStops = new Set<Promise<void>>();
+  private _shutdown?: Promise<void>;
 
   readonly onDidChangeState = this._onDidChangeState.event;
 
@@ -453,16 +476,13 @@ export class AppRunner implements vscode.Disposable {
   async stopApp(appName: string): Promise<void> {
     const entry = this._apps.get(appName);
     if (!entry || entry.status !== "running") { return; }
-    this._killEntry(entry);
+    await this._killEntry(entry);
   }
 
   // @group BusinessLogic : Start all apps belonging to a profile by name list
   async startProfile(appNames: string[]): Promise<void> {
-    const nameSet = new Set(appNames);
-    for (const entry of this._apps.values()) {
-      if (nameSet.has(entry.config.name) && entry.status !== "running") {
-        await this._startEntry(entry);
-      }
+    for (const appName of new Set(appNames)) {
+      await this.startApp(appName);
     }
   }
 
@@ -511,7 +531,7 @@ export class AppRunner implements vscode.Disposable {
 
   // @group BusinessLogic : Spawn the child process inside a VS Code terminal via PTY
   private async _startEntry(entry: AppEntry): Promise<void> {
-    if (entry.status === "running") { return; }
+    if (this._shutdown || entry.status === "running") { return; }
 
     const { config } = entry;
     const appPath = path.resolve(this.workspaceRoot, config.path);
@@ -553,7 +573,6 @@ export class AppRunner implements vscode.Disposable {
         if (entry.pty === pty) {
           entry.status = code === 0 ? "stopped" : "error";
           entry.pid    = undefined;
-          entry.pty    = undefined;
           this._onDidChangeState.fire();
         }
       },
@@ -563,7 +582,6 @@ export class AppRunner implements vscode.Disposable {
         if (entry.pty === pty) {
           entry.status = "error";
           entry.pid    = undefined;
-          entry.pty    = undefined;
           this._onDidChangeState.fire();
         }
       },
@@ -573,6 +591,7 @@ export class AppRunner implements vscode.Disposable {
       name: config.name,
       pty,
       iconPath: new vscode.ThemeIcon("play"),
+      isTransient: true,
     });
 
     entry.pty      = pty;
@@ -584,30 +603,45 @@ export class AppRunner implements vscode.Disposable {
     terminal.show(true); // true = preserve focus on current editor
   }
 
-  private _killEntry(entry: AppEntry): void {
+  private _killEntry(entry: AppEntry): Promise<void> | undefined {
+    let stopped: Promise<void> | undefined;
     if (entry.resumed && entry.pid) {
       // Resumed process — no PTY handle, kill directly by PID
       StateManager.killPid(entry.pid);
       this.stateManager.remove(entry.config.name);
     } else {
-      entry.pty?.kill();
+      stopped = entry.pty?.kill();
+      if (stopped) {
+        const pending = stopped;
+        this._pendingStops.add(pending);
+        void pending.then(() => this._pendingStops.delete(pending));
+      }
     }
     entry.status  = "stopped";
     entry.pid     = undefined;
     entry.pty     = undefined;
     entry.resumed = false;
     this._onDidChangeState.fire();
+    return stopped;
   }
 
-  dispose(): void {
+  dispose(): Promise<void> {
+    if (this._shutdown) { return this._shutdown; }
     for (const timer of this._gitTimers.values()) {
       clearTimeout(timer);
     }
     this._gitTimers.clear();
-    for (const entry of this._apps.values()) {
+    const entries = [...this._apps.values()];
+    for (const entry of entries) {
       this._killEntry(entry);
-      entry.terminal?.dispose();
     }
-    this._onDidChangeState.dispose();
+    this._shutdown = Promise.all(this._pendingStops).then(() => {
+      for (const entry of entries) {
+        entry.terminal?.dispose();
+      }
+      this._apps.clear();
+      this._onDidChangeState.dispose();
+    });
+    return this._shutdown;
   }
 }

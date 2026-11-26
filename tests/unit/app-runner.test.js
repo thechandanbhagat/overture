@@ -3,17 +3,31 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const Module = require("node:module");
+const { EventEmitter } = require("node:events");
+const { PassThrough } = require("node:stream");
+
+class VscodeEmitter {
+  emitter = new EventEmitter();
+  event = (listener) => {
+    this.emitter.on("event", listener);
+    return { dispose: () => this.emitter.off("event", listener) };
+  };
+  fire(value) { this.emitter.emit("event", value); }
+  dispose() { this.emitter.removeAllListeners(); }
+}
+
+const vscode = { EventEmitter: VscodeEmitter, ThemeIcon: class {}, window: {} };
 
 // @group TestSetup : Load compiled app-runner helpers without a VS Code extension host
 const originalLoad = Module._load;
 Module._load = function loadWithVscodeStub(request, parent, isMain) {
   if (request === "vscode") {
-    return {};
+    return vscode;
   }
   return originalLoad.call(this, request, parent, isMain);
 };
 
-const { getGitStatus, parseGitStatus } = require(path.join(__dirname, "..", "..", "out", "app-runner"));
+const { AppRunner, getGitStatus, parseGitStatus } = require(path.join(__dirname, "..", "..", "out", "app-runner"));
 
 Module._load = originalLoad;
 
@@ -23,6 +37,68 @@ async function test(name, callback) {
 }
 
 (async () => {
+  // @group IntegrationTests : Check shutdown ordering with a real child process
+  await test("shutdown waits for the pseudoterminal to close before disposing the terminal", async () => {
+    const events = [];
+    let appStarted;
+    const appPid = new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => reject(new Error("App did not report its PID")), 5000);
+      appStarted = (pid) => { clearTimeout(timeout); resolve(pid); };
+    });
+    vscode.window.createTerminal = ({ pty }) => {
+      pty.onDidClose(() => events.push("pty closed"));
+      pty.onDidWrite((output) => {
+        const match = output.match(/PID=(\d+)/);
+        if (match) { appStarted(Number(match[1])); }
+      });
+      return { show: () => pty.open(), dispose: () => { events.push("terminal disposed"); } };
+    };
+    const runner = new AppRunner({ openLogStream: () => new PassThrough() }, process.cwd(), {
+      save() {},
+      remove() {},
+    });
+    runner.setApps([{
+      name: "service", path: ".", enabled: true,
+      command: `"${process.execPath}" -e "console.log('PID=' + process.pid); setInterval(() => {}, 1000)"`,
+    }]);
+    try {
+      await runner.startApp("service");
+      const shellPid = runner.getAllStates()[0].pid;
+      assert.ok(shellPid);
+      const launchedPid = await appPid;
+      const shutdown = runner.dispose();
+      assert.equal(shutdown, runner.dispose());
+      await shutdown;
+      assert.deepEqual(events, ["pty closed", "terminal disposed"]);
+      assert.throws(() => process.kill(shellPid, 0), { code: "ESRCH" });
+      if (process.platform === "win32") {
+        assert.throws(() => process.kill(launchedPid, 0), { code: "ESRCH" });
+      }
+    } finally {
+      await runner.dispose();
+    }
+  });
+
+  await test("startProfile launches in profile order and skips unknown or already running apps", async () => {
+    const launches = [];
+    vscode.window.createTerminal = ({ name }) => {
+      launches.push(name);
+      return { show() {}, dispose() {} };
+    };
+    const runner = new AppRunner({}, process.cwd(), {});
+    runner.setApps(["frontend", "api", "already running"].map((name) => ({
+      name, path: ".", command: "unused", enabled: true,
+    })));
+    try {
+      await runner.startApp("already running");
+      launches.length = 0;
+      await runner.startProfile(["api", "missing", "already running", "frontend", "api"]);
+      assert.deepEqual(launches, ["api", "frontend"]);
+    } finally {
+      await runner.dispose();
+    }
+  });
+
   // @group UnitTests : getGitStatus must never block the extension host
   //
   // Regression guard: the git lookup previously used execSync, which blocks the single-threaded

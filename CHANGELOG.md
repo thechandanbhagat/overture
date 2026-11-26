@@ -4,6 +4,23 @@ All notable changes to Overture are documented here.
 
 ---
 
+## [1.5.0] - 2026-11-26
+
+### Added
+
+- **Profile launch order**: Reorder apps in Settings. Start Profile now launches them in the saved order rather than the workspace app order.
+
+### Changed
+
+- Refined the Settings app table and profile editor, with theme-aware highlights for selected options.
+- Reduced the size of inline app action icons without shrinking their click targets.
+
+### Fixed
+
+- Normal extension shutdown now waits for pseudoterminal cleanup, with a timeout so an unresponsive app cannot hang shutdown.
+
+---
+
 ## [1.4.0] — 2026-08-21
 
 ### Added

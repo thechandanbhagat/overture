@@ -30,7 +30,7 @@ Run and manage multiple app processes from a single VS Code sidebar panel — wi
 Install from the `.vsix` file:
 
 ```
-code --install-extension overture-1.3.0.vsix
+code --install-extension overture-1.5.0.vsix
 ```
 
 Or via VS Code: **Extensions → ··· → Install from VSIX**
@@ -164,7 +164,7 @@ Click the **gear icon** in the title bar, or run `Overture: Open Settings`, to o
 
 - **General** — log retention (days)
 - **Apps** — add, edit, or remove apps (name, path, command, namespace, enabled, archived) in a table
-- **Profiles** — add, edit, or remove profiles, toggle favorite, and check off member apps
+- **Profiles** — add, edit, or remove profiles, toggle favorite, and select member apps by clicking their labels. Use the up/down arrows under **Launch order** to choose which app starts first. This controls launch order, not when an app is ready to accept connections.
 
 Click **Save** to write changes back to `.overture/config.json`, or **Open config.json** to edit the raw file directly. If the file changes on disk while you have unsaved edits open, the panel prompts you to reload rather than silently overwriting your changes.
 
